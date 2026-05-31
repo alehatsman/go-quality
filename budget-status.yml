@@ -1,0 +1,17 @@
+name: go-quality-budget-status
+description: Report code-quality soft-cap status (gocyclo > 35; god files > 500 LOC). Informational — does not fail.
+version: 1.0.0
+
+props:
+  cap_gocyclo:
+    type: string
+    default: "35"
+    description: Cyclomatic-complexity soft cap.
+  cap_god_loc:
+    type: string
+    default: "500"
+    description: God-file LOC soft cap.
+
+steps:
+  - name: budget-status
+    shell: CAP_GOCYCLO="{{ props.cap_gocyclo }}" CAP_GOD_LOC="{{ props.cap_god_loc }}" bash "{{ component_dir }}/scripts/budget-status.sh"

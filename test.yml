@@ -1,0 +1,17 @@
+name: go-quality-test
+description: Run go test.
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags (e.g. "sqlite_fts5"). Empty = none.
+  pkg:
+    type: string
+    default: "./..."
+    description: Package pattern to test.
+
+steps:
+  - name: go test
+    shell: go test {% if props.go_tags %}-tags "{{ props.go_tags }}"{% endif %} {{ props.pkg }}

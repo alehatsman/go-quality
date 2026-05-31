@@ -1,0 +1,19 @@
+name: go-quality-lint
+description: Run golangci-lint (includes gosec, staticcheck, cyclop, revive, …). Cleans the cache first so sibling worktrees don't leak findings.
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags passed via --build-tags (e.g. "sqlite_fts5"). Empty = none.
+  pkg:
+    type: string
+    default: "./..."
+    description: Package pattern to lint.
+
+steps:
+  - name: golangci-lint
+    shell: |
+      golangci-lint cache clean
+      golangci-lint run {% if props.go_tags %}--build-tags "{{ props.go_tags }}"{% endif %} {{ props.pkg }}

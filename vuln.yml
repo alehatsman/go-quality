@@ -1,0 +1,17 @@
+name: go-quality-vuln
+description: Run govulncheck for known vulnerabilities.
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags (e.g. "sqlite_fts5"). Empty = none.
+  pkg:
+    type: string
+    default: "./..."
+    description: Package pattern to scan.
+
+steps:
+  - name: govulncheck
+    shell: govulncheck {% if props.go_tags %}-tags "{{ props.go_tags }}"{% endif %} {{ props.pkg }}

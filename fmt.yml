@@ -1,0 +1,15 @@
+name: go-quality-fmt
+description: Check gofmt formatting across the tree; fails (listing offending files) if any need formatting.
+version: 1.0.0
+
+steps:
+  - name: gofmt check
+    shell: |
+      bad="$(gofmt -l . 2>/dev/null || true)"
+      if [ -n "$bad" ]; then
+        echo "✗ gofmt would change:" >&2
+        echo "$bad" | sed 's/^/  /' >&2
+        echo "fix with: gofmt -w <files>" >&2
+        exit 1
+      fi
+      echo "✓ all files gofmt-clean"

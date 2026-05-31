@@ -1,0 +1,22 @@
+name: go-quality-scan
+description: Security + vulnerability scan — golangci-lint (incl. gosec) then govulncheck.
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags (e.g. "sqlite_fts5"). Empty = none.
+  pkg:
+    type: string
+    default: "./..."
+    description: Package pattern to scan.
+
+steps:
+  - name: golangci-lint (incl. gosec)
+    shell: |
+      golangci-lint cache clean
+      golangci-lint run {% if props.go_tags %}--build-tags "{{ props.go_tags }}"{% endif %} {{ props.pkg }}
+
+  - name: govulncheck
+    shell: govulncheck {% if props.go_tags %}-tags "{{ props.go_tags }}"{% endif %} {{ props.pkg }}

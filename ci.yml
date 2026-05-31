@@ -1,0 +1,19 @@
+name: go-quality-ci
+description: >-
+  Full pre-push gate — build + test + golangci-lint + govulncheck + arch-snapshot
+  + budget + dupl. Runs scripts/ci/full.sh in the consumer's cwd.
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags passed to go build/test/vet, golangci-lint, govulncheck, go list (e.g. "sqlite_fts5"). Empty = none.
+  pkg:
+    type: string
+    default: "./..."
+    description: Package pattern the gate operates on.
+
+steps:
+  - name: go-quality full gate
+    shell: GO_TAGS="{{ props.go_tags }}" PKG="{{ props.pkg }}" bash "{{ component_dir }}/scripts/ci/full.sh"

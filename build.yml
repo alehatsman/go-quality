@@ -1,0 +1,21 @@
+name: go-quality-build
+description: Compile the project. With `bin` set, produces a named binary from `cmd_path`; otherwise compile-checks `cmd_path`.
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags (e.g. "sqlite_fts5"). Empty = none.
+  cmd_path:
+    type: string
+    default: "./..."
+    description: Package path to build (e.g. "./cmd/dex"). Defaults to the whole module (compile-check).
+  bin:
+    type: string
+    default: ""
+    description: Output binary path. Empty = no -o (compile-check only).
+
+steps:
+  - name: go build
+    shell: go build {% if props.go_tags %}-tags "{{ props.go_tags }}"{% endif %} {% if props.bin %}-o "{{ props.bin }}"{% endif %} {{ props.cmd_path }}

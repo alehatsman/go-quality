@@ -1,0 +1,19 @@
+name: go-quality-ci-fast
+description: >-
+  Fast pre-commit gate — go vet + gofmt (staged) + ai-lint (staged) + budget.
+  Runs scripts/ci/fast.sh in the consumer's cwd.
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags passed to go vet (e.g. "sqlite_fts5"). Empty = none.
+  pkg:
+    type: string
+    default: "./..."
+    description: Package pattern for go vet.
+
+steps:
+  - name: go-quality fast gate
+    shell: GO_TAGS="{{ props.go_tags }}" PKG="{{ props.pkg }}" bash "{{ component_dir }}/scripts/ci/fast.sh"

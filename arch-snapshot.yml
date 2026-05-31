@@ -1,0 +1,17 @@
+name: go-quality-arch-snapshot
+description: Generate a markdown architecture snapshot (package graph, coupling, god-files, cyclomatic hotspots).
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags for go list (e.g. "sqlite_fts5"). Empty = none.
+  out:
+    type: string
+    default: "docs-working/ARCH_SNAPSHOT.md"
+    description: Output path (relative to the consumer repo root).
+
+steps:
+  - name: arch-snapshot
+    shell: GO_TAGS="{{ props.go_tags }}" bash "{{ component_dir }}/scripts/arch-snapshot.sh" "{{ props.out }}"

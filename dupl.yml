@@ -1,0 +1,13 @@
+name: go-quality-dupl
+description: Production-code duplication report (informational). Gracefully skips if dupl isn't installed.
+version: 1.0.0
+
+props:
+  threshold:
+    type: string
+    default: "100"
+    description: dupl clone-size threshold (token count).
+
+steps:
+  - name: dupl-report
+    shell: T="{{ props.threshold }}" bash "{{ component_dir }}/scripts/dupl-report.sh" --ci

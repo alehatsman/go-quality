@@ -1,0 +1,20 @@
+name: go-quality-sync-config
+description: >-
+  Drop the shared baseline .golangci.yml into the consumer repo root. src reads
+  from the module (component_dir); dest is relative and resolves against the
+  consumer's invocation dir (mooncake#43). Projects layer their own
+  exclusions.rules on top of the baseline.
+version: 1.0.0
+
+props:
+  dest:
+    type: string
+    default: ".golangci.yml"
+    description: Destination path, relative to the consumer repo root.
+
+steps:
+  - name: install shared .golangci.yml
+    copy:
+      src: "{{ component_dir }}/.golangci.yml"
+      dest: "{{ props.dest }}"
+      force: true
