@@ -14,7 +14,7 @@ props:
 
 steps:
   - name: install shared .golangci.yml
-    copy:
+    file.copy:
       src: "{{ component_dir }}/.golangci.yml"
       dest: "{{ props.dest }}"
       force: true
