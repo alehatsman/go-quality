@@ -15,7 +15,15 @@ props:
     type: string
     default: ""
     description: Output binary path. Empty = no -o (compile-check only).
+  trimpath:
+    type: bool
+    default: false
+    description: Pass -trimpath for reproducible builds.
+  ldflags:
+    type: string
+    default: ""
+    description: Linker flags (e.g. "-s -w" to strip debug info).
 
 steps:
   - name: go build
-    shell: go build {% if props.go_tags %}-tags "{{ props.go_tags }}"{% endif %} {% if props.bin %}-o "{{ props.bin }}"{% endif %} {{ props.cmd_path }}
+    shell: go build {% if props.trimpath %}-trimpath {% endif %}{% if props.go_tags %}-tags "{{ props.go_tags }}" {% endif %}{% if props.ldflags %}-ldflags "{{ props.ldflags }}" {% endif %}{% if props.bin %}-o "{{ props.bin }}" {% endif %}{{ props.cmd_path }}
