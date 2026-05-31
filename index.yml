@@ -1,0 +1,12 @@
+name: go-quality
+description: >-
+  Shared Go quality-gate toolchain — one canonical lint config, static-analysis
+  scripts, and CI gates for mooncake, dex, moongit, and future Go repos.
+# Export names map to component files (authored in G2 / #95). The mooncake
+# module loader only requires `name` + a non-empty `exports` map; the component
+# files are resolved (and existence-checked) when a consumer actually `use:`s an
+# export, so these forward-references are valid for the G1 skeleton.
+exports:
+  default: components/ci.yml    # full pre-push gate (build+test+lint+vuln+arch+budget+dupl)
+  fast: components/fast.yml     # fast pre-commit gate (vet+fmt+ai-lint+budget)
+  tools: components/tools.yml   # install + verify the static-analysis toolchain

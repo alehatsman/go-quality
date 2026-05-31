@@ -1,0 +1,109 @@
+version: "2"
+
+# Shared baseline golangci-lint config for Go projects in this fleet.
+#
+# This is the COMMON core reconciled from mooncake + dex: the bug-catching
+# linter selection, the cyclop soft-cap (35), the staticcheck check set, the
+# base gosec excludes, and the revive rule set. Consumers layer their own
+# project-specific `exclusions.rules` on top (each project's excludes are
+# bound to concrete file paths and stay local). golangci-lint v2 has no native
+# config-merge, so a project either copies this file and appends its excludes,
+# or the go-quality component drops it in as the starting point.
+
+run:
+  timeout: 5m
+  tests: false
+
+linters:
+  # Pragmatic stance: enable bug-catching linters, disable style-pedantry ones.
+  # The dropped linters (gocritic / unparam / dupl / prealloc) flag legitimate
+  # design choices as problems; the gocyclo/dupl soft-cap discipline (see
+  # scripts/budget-status.sh + scripts/dupl-report.sh) covers the complexity
+  # and duplication ratchet without per-PR noise.
+  enable:
+    - gosec
+    - errcheck
+    - staticcheck
+    - govet
+    - ineffassign
+    - unused
+    - misspell
+    - unconvert
+    - bodyclose
+    - revive
+    - cyclop
+  disable:
+    - errname
+    - exhaustive
+    - wrapcheck
+    - goconst
+    - gocyclo     # superseded by cyclop (single cyclomatic source); arch-snapshot uses gocyclo standalone for the soft-cap ratchet
+    - gocritic    # mostly style; the project's review process handles ifElseChain / typeSwitchVar etc.
+    - unparam     # flags interface contracts that always return nil err as "problems"; not actionable
+    - dupl        # over-eager; scripts/dupl-report.sh gives a better targeted report
+    - prealloc    # micro-optimisation noise; profile-driven not lint-driven
+
+  settings:
+    gosec:
+      severity: "medium"
+      confidence: "medium"
+      # Base excludes shared across the fleet. Run gosec via golangci-lint, not
+      # standalone, so this stays the single source of truth.
+      excludes:
+        - G104  # errors unhandled
+        - G115  # integer overflow conversion
+        - G204  # subprocess launched with variable
+        - G301  # bad dir perms
+        - G302  # file perms — config/lockfile use 0644 by design
+        - G304  # path from variable — every config-reading codepath
+        - G306  # bad write perms
+
+    cyclop:
+      # Aligned with the soft cap (35). Anything above 35 is a refactor target;
+      # the arch-snapshot ratchet drives those down over time. Below 35,
+      # functions pass lint regardless.
+      max-complexity: 35
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+
+    revive:
+      enable-all-rules: false
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+
+    staticcheck:
+      # Keep SA* (the real-bug checks); drop QF/ST/S style suggestions.
+      # ST1020/ST1005/S1008/S1017/S1034 are style preferences, not bugs.
+      checks: ["all", "-QF*", "-ST1005", "-ST1020", "-S1008", "-S1017", "-S1034"]
+
+  exclusions:
+    # Project-specific exclusions live in the consumer's own .golangci.yml.
+    # Keep this baseline clean — path-bound excludes do not generalise.
+    rules: []
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
