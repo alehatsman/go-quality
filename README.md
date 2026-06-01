@@ -52,6 +52,39 @@ canonical version each. What stayed **out** of the shared baseline, by design:
 
 ## Consuming this module
 
-Component wiring (the `use:` exports + `go_tags`/`pkg`/`bin`/`cmd_path` props)
-and the first tagged release land in #95 (G2). Until then this repo is the
-asset skeleton: the canonical scripts + lint config + manifest.
+The ergonomic wiring (mooncake ≥ the default-props/shorthand release): hoist the
+invariant `go_tags`/`pkg` into the binding as **default props** and wire each
+export with the one-line task-as-alias shorthand.
+
+```yaml
+vars: { GO_TAGS: "", PKG: ./... }
+modules:
+  goq:
+    source: "127.0.0.1:8080/alehatsman/go-quality@v0.1.1"
+    props:
+      go_tags: "{{ GO_TAGS }}"   # only the exports that declare it receive it
+      pkg: "{{ PKG }}"
+
+tasks:
+  test: goq/test
+  vet:  goq/vet
+  lint: goq/lint
+  vuln: goq/vuln
+  ci:   goq/ci
+  ci-fast: goq/ci-fast
+  # budget-status/dupl/ai-lint/fmt/tools declare neither go_tags nor pkg —
+  # the defaults are filtered out, so these wrappers work too:
+  budget-status: goq/budget-status
+  # build takes its own props, so keep the full form:
+  build:
+    steps:
+      - use: goq/build
+        props: { cmd_path: ./cmd, bin: "{{ BIN }}" }
+```
+
+A module-level default prop is applied **only to the exports that declare it**
+(so a `go_tags` default reaches `lint`/`test`/… but is skipped for
+`budget-status`); a per-call `props:` overrides. `mooncake task` lists each
+component's own `description:`, so the shorthand tasks need no `desc:`.
+
+The full export catalog + the first tagged release are tracked in #95 (G2).
