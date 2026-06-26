@@ -8,12 +8,12 @@
 #   stub-panic     panic("not implemented" | "unimplemented" | "TODO" | "FIXME" | "placeholder")
 #   agent-todo     TODO(claude|ai|bot|gpt|assistant)  — replace with a real owner
 #   ai-self-ref    comment references the agent dialog ("as requested", "per your request", …)
+#   diff-relic     // REMOVED: / // PREVIOUSLY: uppercase banners — belongs in commit history
 #
 # Rules considered and dropped (kept here so we don't re-introduce them naively):
-#   diff-relic ("// previously", "// removed") — too noisy: legitimate prose
+#   diff-relic lowercase ("// previously", "// removed") — too noisy: legitimate prose
 #     in CLI tools and package handlers ("the list of packages removed",
-#     "previously only DurationMs was carried") trips it. Add back only with
-#     much narrower phrasing (e.g. uppercase "// REMOVED:" banners).
+#     "previously only DurationMs was carried") trips it. Uppercase-only is safe.
 #   the-user-asked — "the user" in a CLI tool refers to the end user, not
 #     the agent's interlocutor. Real AI-tell requires an explicit pronoun.
 #
@@ -102,6 +102,10 @@ run_rule agent-todo \
 run_rule ai-self-ref \
   '//.*\b(as requested|per your request|as you (asked|requested|wanted)|in response to your request)\b' \
   'AI prompt artifact — comment references the agent dialog'
+
+run_rule diff-relic \
+  '//[[:space:]]*(REMOVED|PREVIOUSLY):[[:space:]]' \
+  'diff relic — uppercase removal banner belongs in commit history, not source'
 
 # --- report -------------------------------------------------------------------
 if [ "$findings" -eq 0 ]; then

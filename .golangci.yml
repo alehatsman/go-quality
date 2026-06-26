@@ -32,6 +32,8 @@ linters:
     - bodyclose
     - revive
     - cyclop
+    - nilerr    # return nil when err is non-nil — silent data loss
+    - noctx     # HTTP calls without context — misses cancellation propagation
   disable:
     - errname
     - exhaustive

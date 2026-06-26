@@ -3,7 +3,7 @@
 #
 #   [1/7] build (compile-check ./...)
 #   [2/7] test
-#   [3/7] golangci-lint (cache cleaned first; sibling worktrees leak)
+#   [3/7] golangci-lint (worktree-scoped cache; sibling-safe)
 #   [4/7] govulncheck
 #   [5/7] arch-snapshot summary (regenerated; file is gitignored)
 #   [6/7] code-quality soft-cap budget
@@ -37,10 +37,12 @@ go build "${tags_args[@]+"${tags_args[@]}"}" "$PKG"
 echo "[2/7] test"
 go test "${tags_args[@]+"${tags_args[@]}"}" "$PKG"
 
-echo "[3/7] golangci-lint (clean cache first)"
-# Cache leaks across sibling worktrees and surfaces phantom findings from
-# ../<repo>-*/ paths. Clean before each run so results reflect this tree.
-golangci-lint cache clean
+echo "[3/7] golangci-lint (worktree-scoped cache)"
+# Scope the cache to this checkout path so sibling worktrees don't leak phantom
+# findings into each other. No clean needed — warm cache is reused across runs
+# in the same worktree.
+_lint_cache_key=$(printf '%s' "$(git rev-parse --show-toplevel)" | sha256sum | cut -c1-12)
+export GOLANGCI_LINT_CACHE="${HOME}/.cache/golangci-lint/${_lint_cache_key}"
 if [ -n "$GO_TAGS" ]; then
   golangci-lint run --build-tags "$GO_TAGS" "$PKG"
 else
