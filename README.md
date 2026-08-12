@@ -15,11 +15,34 @@ scripts/
   arch-snapshot.sh   package-graph / coupling / cyclomatic snapshot (markdown)
   budget-status.sh   gocyclo + god-file soft-cap status
   dupl-report.sh     production-code duplication report
+  structure-ratchet.sh  monotonic ratchet: fails when structural counts grow (opt-in)
   install-tools.sh   go install the static-analysis toolchain
   check-tools.sh     verify the toolchain is present
-  ci/fast.sh         pre-commit gate  (vet + gofmt + ai-lint + budget)
-  ci/full.sh         pre-push gate    (build + test + lint + vuln + arch + budget + dupl)
+  ci/fast.sh         pre-commit gate  (vet + gofmt + ai-lint + mod-tidy + budget)
+  ci/full.sh         pre-push gate    (build + test + mod-tidy + lint + vuln + arch + budget + dupl + structure-ratchet)
 ```
+
+## Structural ratchet (opt-in enforcement)
+
+`budget-status`, `dupl` and `deadcode` are **informational** — they print drift
+but never fail, so god files, over-cap complexity, clone pairs and dead code can
+grow unbounded. `structure-ratchet.sh` turns those signals into a **one-way
+door**: it freezes four counts (`god_files`, `gocyclo_over`, `dupl_pairs`,
+`deadcode_symbols`) in a committed baseline and **fails the gate when any count
+grows**. Counts may shrink freely; `--refresh` re-tightens the baseline.
+
+It is **opt-in per project**: with no baseline file present it skips cleanly
+(exit 0), so it is safe in the shared `ci/full.sh` for every consumer. Opt in
+once:
+
+```
+scripts/structure-ratchet.sh --refresh      # writes benchmark/structure/baseline.json
+git add benchmark/structure/baseline.json   # commit to enable enforcement
+```
+
+Knobs: `STRUCTURE_BASELINE` (path), `DEADCODE_PKG` (deadcode entry pkgs,
+default `./...`), plus the shared `GO_TAGS`/`CAP_GOCYCLO`/`CAP_GOD_LOC`/`DUPL_T`.
+Standalone preset: `structure-ratchet.yml`.
 
 ## `GO_TAGS` support
 

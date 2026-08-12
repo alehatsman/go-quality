@@ -12,6 +12,7 @@ tools=(
   "github.com/fzipp/gocyclo/cmd/gocyclo@latest"
   "github.com/loov/goda@latest"
   "github.com/mibk/dupl@latest"
+  "golang.org/x/tools/cmd/deadcode@latest"
 )
 
 for spec in "${tools[@]}"; do

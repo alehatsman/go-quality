@@ -1,0 +1,26 @@
+name: go-quality-structure-ratchet
+description: >-
+  Monotonic ratchet for structural metrics (god files, gocyclo>cap, dupl pairs,
+  deadcode). Fails when any count grows above a committed baseline. Opt-in:
+  skips cleanly for projects without benchmark/structure/baseline.json.
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags for the deadcode pass (e.g. "sqlite_fts5"). Empty = none.
+  baseline:
+    type: string
+    default: "benchmark/structure/baseline.json"
+    description: Path to the committed structural baseline (counts + offender lists).
+  refresh:
+    type: string
+    default: ""
+    description: Set to "--refresh" to regenerate the baseline from the current tree.
+
+steps:
+  - name: structure-ratchet
+    shell: >-
+      GO_TAGS="{{ props.go_tags }}" STRUCTURE_BASELINE="{{ props.baseline }}"
+      bash "{{ component_dir }}/scripts/structure-ratchet.sh" {{ props.refresh }}

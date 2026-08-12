@@ -6,7 +6,7 @@
 # the diagnosis.
 set -euo pipefail
 
-tools=(golangci-lint govulncheck gosec gocyclo goda dupl)
+tools=(golangci-lint govulncheck gosec gocyclo goda dupl deadcode)
 missing=0
 gopath_bin="$(go env GOPATH)/bin"
 
