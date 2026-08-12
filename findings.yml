@@ -1,0 +1,56 @@
+name: go-quality-findings
+description: >-
+  Aggregate every gate step's `--format jsonl` output into one machine-readable
+  findings stream (.gate/findings.jsonl) — the agent-facing view of the gate
+  (dex #155 P1). A pure artifact producer: emitters never abort the aggregation
+  and this preset does not re-gate. Enforcement stays with goq/ci (the human
+  gate); this just makes the same signal legible to tools. Currently aggregates
+  ai-lint + structure-ratchet; dupl/budget (informational) fold in next.
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags for the structure-ratchet deadcode pass.
+  deadcode_pkg:
+    type: string
+    default: "./..."
+    description: Entry packages for the deadcode pass (single-main repos pin ./cmd/<bin>).
+  structure_baseline:
+    type: string
+    default: "benchmark/structure/baseline.json"
+    description: Structural ratchet baseline (opt-in; absent = ratchet emits nothing).
+  out:
+    type: string
+    default: ".gate/findings.jsonl"
+    description: Destination JSONL artifact (gitignored).
+
+steps:
+  # Truncate — each run is a fresh snapshot; dedup across runs is the consumer's
+  # job via each finding's `fingerprint`.
+  - name: reset findings artifact
+    shell: mkdir -p "$(dirname "{{ props.out }}")" && : > "{{ props.out }}"
+
+  # --warn-only: ai-lint must not abort the sweep just because it found smells;
+  # its findings are captured, the exit code is not the gate here.
+  - name: collect ai-lint findings
+    shell: >-
+      bash "{{ component_dir }}/scripts/ai-lint.sh" --all --format jsonl --warn-only
+      >> "{{ props.out }}"
+
+  # `|| true`: structure-ratchet exits 1 when a count grew — that is the gate's
+  # job in goq/ci, not here; we only want its findings on the stream.
+  - name: collect structure-ratchet findings
+    shell: >-
+      GO_TAGS="{{ props.go_tags }}" DEADCODE_PKG="{{ props.deadcode_pkg }}"
+      STRUCTURE_BASELINE="{{ props.structure_baseline }}"
+      bash "{{ component_dir }}/scripts/structure-ratchet.sh" --format jsonl
+      >> "{{ props.out }}" || true
+
+  # Cheap substring count — findings are one JSON object per line.
+  - name: summarize
+    shell: >-
+      echo "findings: $(grep -c . "{{ props.out }}" 2>/dev/null || echo 0) total,
+      $(grep -c '"level":"error"' "{{ props.out }}" 2>/dev/null || echo 0) error(s)
+      -> {{ props.out }}"

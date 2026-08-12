@@ -16,6 +16,7 @@ scripts/
   budget-status.sh   gocyclo + god-file soft-cap status
   dupl-report.sh     production-code duplication report
   structure-ratchet.sh  monotonic ratchet: fails when structural counts grow (opt-in)
+                        (+ --format jsonl structured findings)
   install-tools.sh   go install the static-analysis toolchain
   check-tools.sh     verify the toolchain is present
   ci/fast.sh         pre-commit gate  (vet + gofmt + ai-lint + mod-tidy + budget)
@@ -43,6 +44,32 @@ git add benchmark/structure/baseline.json   # commit to enable enforcement
 Knobs: `STRUCTURE_BASELINE` (path), `DEADCODE_PKG` (deadcode entry pkgs,
 default `./...`), plus the shared `GO_TAGS`/`CAP_GOCYCLO`/`CAP_GOD_LOC`/`DUPL_T`.
 Standalone preset: `structure-ratchet.yml`.
+
+## Machine-readable findings (`--format jsonl` + `goq/findings`)
+
+Every gate step also speaks **agent**. The scripts that surface findings accept
+`--format jsonl`, emitting one finding object per line on stdout (human status
+routed to stderr) in a shared schema:
+
+```json
+{"tool":"structure-ratchet","rule":"gocyclo_over","level":"error","path":"cmd/dex/main_index.go","line":178,"col":1,"message":"gocyclo_over grew above baseline: …","fingerprint":"gocyclo_over:cmd/dex/main_index.go:178"}
+```
+
+Fields: `tool, rule, level (error|warning|note), path, line, col?, message,
+fingerprint`. `level:error` = gate-failing — the same signal the human gate
+enforces. Emitters so far: `ai-lint` (every smell = error), `structure-ratchet`
+(NEW offenders = error, improvements = note). Text output is byte-identical
+without the flag.
+
+The **`goq/findings`** preset (`findings.yml`) aggregates every emitter into one
+`.gate/findings.jsonl` artifact (gitignored, truncated per run). It is a **pure
+producer** — emitters never abort the sweep and it does not re-gate; enforcement
+stays with `goq/ci`. This is the boundary agents read; dedup across runs via each
+finding's `fingerprint`. Consume it with a task:
+
+```yaml
+findings: goq/findings   # -> .gate/findings.jsonl
+```
 
 ## `GO_TAGS` support
 

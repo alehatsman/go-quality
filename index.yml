@@ -27,3 +27,4 @@ exports:
   budget-status: budget-status.yml
   dupl: dupl.yml
   structure-ratchet: structure-ratchet.yml  # opt-in monotonic structural ratchet
+  findings: findings.yml      # aggregate --format jsonl findings -> .gate/findings.jsonl (agent-facing)

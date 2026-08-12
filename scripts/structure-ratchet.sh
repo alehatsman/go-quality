@@ -39,13 +39,23 @@ GO_TAGS="${GO_TAGS:-}"
 
 REFRESH=0
 CI_MODE=0
-for a in "$@"; do
-  case "$a" in
-    --refresh) REFRESH=1 ;;
-    --ci)      CI_MODE=1 ;;
-    *) echo "structure-ratchet: unknown arg '$a'" >&2; exit 2 ;;
+FORMAT="text"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --refresh)  REFRESH=1; shift ;;
+    --ci)       CI_MODE=1; shift ;;
+    --format)   FORMAT="${2:-}"; shift 2 ;;
+    --format=*) FORMAT="${1#*=}"; shift ;;
+    *) echo "structure-ratchet: unknown arg '$1'" >&2; exit 2 ;;
   esac
 done
+case "$FORMAT" in
+  text|jsonl) ;;
+  *) echo "structure-ratchet: unknown --format '$FORMAT' (want text|jsonl)" >&2; exit 2 ;;
+esac
+
+# In jsonl mode stdout must stay pure JSONL, so human status goes to stderr.
+say() { if [ "$FORMAT" = "jsonl" ]; then echo "$@" >&2; else echo "$@"; fi; }
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 BASELINE="${STRUCTURE_BASELINE:-benchmark/structure/baseline.json}"
@@ -68,8 +78,8 @@ missing_tool() {
 
 # ---- opt-in guard: no baseline and not refreshing → skip cleanly -------------
 if [ "$REFRESH" != "1" ] && [ ! -f "$BASELINE" ]; then
-  echo "  structure-ratchet: no baseline at $BASELINE — not opted in. Skipping."
-  echo "  (run 'scripts/structure-ratchet.sh --refresh' once and commit it to enable.)"
+  say "  structure-ratchet: no baseline at $BASELINE — not opted in. Skipping."
+  say "  (run 'scripts/structure-ratchet.sh --refresh' once and commit it to enable.)"
   exit 0
 fi
 
@@ -141,34 +151,66 @@ PY
 fi
 
 # ---- check: fail if any measured count grew over baseline --------------------
-python3 - "$BASELINE" "$tmp" $METRICS <<'PY'
-import json, os, sys
+FORMAT="$FORMAT" python3 - "$BASELINE" "$tmp" $METRICS <<'PY'
+import json, os, re, sys
 base_path, tmp, metrics = sys.argv[1], sys.argv[2], sys.argv[3:]
+fmt = os.environ.get("FORMAT", "text")
 base = json.load(open(base_path))
 failed = False
+
+# Human status goes to stderr in jsonl mode so stdout stays pure JSONL.
+def hum(s): print(s, file=(sys.stderr if fmt == "jsonl" else sys.stdout))
+
+# Map a metric's offender-identity string back to (path, line, col?). Each
+# metric encodes location differently — see the collectors above.
+def loc(metric, item):
+    if metric == "gocyclo_over":          # "pkg.func path.go:line:col"
+        m = re.search(r'(\S+):(\d+):(\d+)$', item)
+        if m: return m.group(1), int(m.group(2)), int(m.group(3))
+    elif metric == "deadcode_symbols":    # "path:line:col: unreachable ..."
+        m = re.match(r'([^:]+):(\d+):(\d+):', item)
+        if m: return m.group(1), int(m.group(2)), int(m.group(3))
+    elif metric == "dupl_pairs":          # "fileA:lo-hi <--> fileB:lo-hi"
+        m = re.match(r'([^:]+):(\d+)', item)
+        if m: return m.group(1), int(m.group(2)), None
+    return item, 1, None                  # god_files: identity IS the path
+
+def finding(rule, level, path, line, col, message):
+    o = {"tool": "structure-ratchet", "rule": rule, "level": level,
+         "path": path, "line": line, "message": message,
+         "fingerprint": f"{rule}:{path}:{line}"}
+    if col is not None: o["col"] = col
+    print(json.dumps(o))                   # JSONL finding -> stdout
+
 for m in metrics:
     f = os.path.join(tmp, m)
-    if not os.path.exists(f):          # skipped (tool missing, non-CI) → ignore
+    if not os.path.exists(f):              # skipped (tool missing, non-CI) → ignore
         continue
     cur = [l.rstrip("\n") for l in open(f) if l.strip()]
     b = base.get(m)
     if b is None:
-        print(f"  ~ {m:<18} not in baseline (count={len(cur)}) — run --refresh")
+        hum(f"  ~ {m:<18} not in baseline (count={len(cur)}) — run --refresh")
         continue
     bl_count, bl_items = b["count"], set(b.get("items", []))
     if len(cur) > bl_count:
         failed = True
         new = [x for x in cur if x not in bl_items]
-        print(f"  ✗ {m:<18} {bl_count} -> {len(cur)}  (+{len(cur)-bl_count})")
+        hum(f"  ✗ {m:<18} {bl_count} -> {len(cur)}  (+{len(cur)-bl_count})")
         for x in new:
-            print(f"        NEW  {x}")
+            hum(f"        NEW  {x}")
+            if fmt == "jsonl":
+                p, ln, col = loc(m, x)
+                finding(m, "error", p, ln, col, f"{m} grew above baseline: {x}")
     elif len(cur) < bl_count:
-        print(f"  ↓ {m:<18} {bl_count} -> {len(cur)}  (improved — run --refresh to lock in)")
+        hum(f"  ↓ {m:<18} {bl_count} -> {len(cur)}  (improved — run --refresh to lock in)")
+        if fmt == "jsonl":
+            finding(m, "note", base_path, 1, None,
+                    f"{m} improved {bl_count} -> {len(cur)} — run --refresh to lock in")
     else:
-        print(f"  ✓ {m:<18} {bl_count}")
+        hum(f"  ✓ {m:<18} {bl_count}")
 if failed:
-    print("\nstructure-ratchet: structural metrics grew above baseline (ratchet). "
-          "Reduce them, or if intentional re-run with --refresh and commit the baseline.")
+    hum("\nstructure-ratchet: structural metrics grew above baseline (ratchet). "
+        "Reduce them, or if intentional re-run with --refresh and commit the baseline.")
     sys.exit(1)
-print("\nstructure-ratchet: all structural metrics within baseline")
+hum("\nstructure-ratchet: all structural metrics within baseline")
 PY
