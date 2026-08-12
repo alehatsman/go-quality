@@ -30,7 +30,7 @@ steps:
   # Truncate — each run is a fresh snapshot; dedup across runs is the consumer's
   # job via each finding's `fingerprint`.
   - name: reset findings artifact
-    shell: mkdir -p "$(dirname "{{ props.out }}")" && : > "{{ props.out }}"
+    shell: 'mkdir -p "$(dirname "{{ props.out }}")" && : > "{{ props.out }}"'
 
   # --warn-only: ai-lint must not abort the sweep just because it found smells;
   # its findings are captured, the exit code is not the gate here.
