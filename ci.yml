@@ -13,7 +13,21 @@ props:
     type: string
     default: "./..."
     description: Package pattern the gate operates on.
+  deadcode_pkg:
+    type: string
+    default: "./..."
+    description: >-
+      Entry packages for the structure-ratchet deadcode pass. Single-main repos
+      should pin their command (e.g. "./cmd/foo") so unreachability is measured
+      from the real entry point, not every internal package.
+  structure_baseline:
+    type: string
+    default: "benchmark/structure/baseline.json"
+    description: Path to the committed structural ratchet baseline (opt-in; absent = skipped).
 
 steps:
   - name: go-quality full gate
-    shell: GO_TAGS="{{ props.go_tags }}" PKG="{{ props.pkg }}" bash "{{ component_dir }}/scripts/ci/full.sh"
+    shell: >-
+      GO_TAGS="{{ props.go_tags }}" PKG="{{ props.pkg }}"
+      DEADCODE_PKG="{{ props.deadcode_pkg }}" STRUCTURE_BASELINE="{{ props.structure_baseline }}"
+      bash "{{ component_dir }}/scripts/ci/full.sh"

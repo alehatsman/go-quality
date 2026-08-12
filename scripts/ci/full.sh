@@ -92,7 +92,9 @@ bash "$SCRIPTS_DIR/dupl-report.sh" --ci
 echo "[9/9] structure-ratchet (opt-in structural metric enforcement)"
 # No pipe: piping through sed would swallow a non-zero exit under pipefail.
 # The script indents its own output.
-GO_TAGS="$GO_TAGS" bash "$SCRIPTS_DIR/structure-ratchet.sh" --ci
+GO_TAGS="$GO_TAGS" DEADCODE_PKG="${DEADCODE_PKG:-./...}" \
+  STRUCTURE_BASELINE="${STRUCTURE_BASELINE:-benchmark/structure/baseline.json}" \
+  bash "$SCRIPTS_DIR/structure-ratchet.sh" --ci
 
 echo
 echo "✓ All checks green — safe to push."

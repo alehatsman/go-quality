@@ -10,7 +10,13 @@ props:
     type: string
     default: ""
     description: Build tags for the deadcode pass (e.g. "sqlite_fts5"). Empty = none.
-  baseline:
+  deadcode_pkg:
+    type: string
+    default: "./..."
+    description: >-
+      Entry packages for the deadcode pass. Single-main repos should pin their
+      command (e.g. "./cmd/foo") for precise unreachability.
+  structure_baseline:
     type: string
     default: "benchmark/structure/baseline.json"
     description: Path to the committed structural baseline (counts + offender lists).
@@ -22,5 +28,6 @@ props:
 steps:
   - name: structure-ratchet
     shell: >-
-      GO_TAGS="{{ props.go_tags }}" STRUCTURE_BASELINE="{{ props.baseline }}"
+      GO_TAGS="{{ props.go_tags }}" DEADCODE_PKG="{{ props.deadcode_pkg }}"
+      STRUCTURE_BASELINE="{{ props.structure_baseline }}"
       bash "{{ component_dir }}/scripts/structure-ratchet.sh" {{ props.refresh }}
