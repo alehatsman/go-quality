@@ -59,9 +59,11 @@ steps:
       bash "{{ component_dir }}/scripts/budget-status.sh" --format jsonl
       >> "{{ props.out }}"
 
-  # Cheap substring count — findings are one JSON object per line.
+  # Cheap substring count — findings are one JSON object per line. `grep -c`
+  # already prints 0 and exits 1 on no match, so guard with `|| true` (not
+  # `|| echo 0`, which would append a second 0).
   - name: summarize
     shell: >-
-      echo "findings: $(grep -c . "{{ props.out }}" 2>/dev/null || echo 0) total,
-      $(grep -c '"level":"error"' "{{ props.out }}" 2>/dev/null || echo 0) error(s)
+      echo "findings: $(grep -c . "{{ props.out }}" 2>/dev/null || true) total,
+      $(grep -c '"level":"error"' "{{ props.out }}" 2>/dev/null || true) error(s)
       -> {{ props.out }}"

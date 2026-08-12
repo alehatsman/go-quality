@@ -28,3 +28,4 @@ exports:
   dupl: dupl.yml
   structure-ratchet: structure-ratchet.yml  # opt-in monotonic structural ratchet
   findings: findings.yml      # aggregate --format jsonl findings -> .gate/findings.jsonl (agent-facing)
+  sarif: sarif.yml            # project findings.jsonl -> SARIF 2.1.0 (GitHub code scanning / IDEs)

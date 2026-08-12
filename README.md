@@ -17,6 +17,7 @@ scripts/
   dupl-report.sh     production-code duplication report
   structure-ratchet.sh  monotonic ratchet: fails when structural counts grow (opt-in)
                         (+ --format jsonl structured findings)
+  findings-to-sarif.sh  project .gate/findings.jsonl -> SARIF 2.1.0 (code scanning)
   install-tools.sh   go install the static-analysis toolchain
   check-tools.sh     verify the toolchain is present
   ci/fast.sh         pre-commit gate  (vet + gofmt + ai-lint + mod-tidy + budget)
@@ -70,6 +71,17 @@ finding's `fingerprint`. Consume it with a task:
 
 ```yaml
 findings: goq/findings   # -> .gate/findings.jsonl
+```
+
+**SARIF** — `goq/sarif` (`findings-to-sarif.sh`) projects the JSONL stream into
+SARIF 2.1.0 (`.gate/findings.sarif`), a pure leaf format change so the same
+findings upload to GitHub code scanning and render in IDEs. Levels
+(error/warning/note) map straight across; each finding's `fingerprint` becomes a
+SARIF `partialFingerprint` for stable cross-run dedup. Run on demand / in CI
+after `goq/findings`, never in the local fast path:
+
+```yaml
+sarif: goq/sarif   # .gate/findings.jsonl -> .gate/findings.sarif
 ```
 
 ## `GO_TAGS` support

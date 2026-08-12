@@ -1,0 +1,21 @@
+name: go-quality-sarif
+description: >-
+  Project the JSONL gate findings (.gate/findings.jsonl) into SARIF 2.1.0
+  (.gate/findings.sarif) for GitHub code scanning / IDE ingestion (dex #155 P2).
+  A pure leaf projection — run on demand or in CI after goq/findings, never in
+  the local fast path.
+version: 1.0.0
+
+props:
+  in:
+    type: string
+    default: ".gate/findings.jsonl"
+    description: Input JSONL findings stream (the goq/findings artifact).
+  out:
+    type: string
+    default: ".gate/findings.sarif"
+    description: Destination SARIF 2.1.0 file.
+
+steps:
+  - name: findings to sarif
+    shell: 'bash "{{ component_dir }}/scripts/findings-to-sarif.sh" "{{ props.in }}" > "{{ props.out }}" && echo "sarif written -> {{ props.out }}"'
