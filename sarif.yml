@@ -7,7 +7,9 @@ description: >-
 version: 1.0.0
 
 props:
-  in:
+  # NB: not "in" — the mooncake template engine treats `in` as a reserved
+  # keyword, so `{{ props.in }}` fails to compile.
+  input:
     type: string
     default: ".gate/findings.jsonl"
     description: Input JSONL findings stream (the goq/findings artifact).
@@ -18,4 +20,4 @@ props:
 
 steps:
   - name: findings to sarif
-    shell: 'bash "{{ component_dir }}/scripts/findings-to-sarif.sh" "{{ props.in }}" > "{{ props.out }}" && echo "sarif written -> {{ props.out }}"'
+    shell: 'bash "{{ component_dir }}/scripts/findings-to-sarif.sh" "{{ props.input }}" > "{{ props.out }}" && echo "sarif written -> {{ props.out }}"'
