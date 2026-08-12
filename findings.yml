@@ -4,9 +4,9 @@ description: >-
   findings stream (.gate/findings.jsonl) — the agent-facing view of the gate
   (dex #155 P1). A pure artifact producer: emitters never abort the aggregation
   and this preset does not re-gate. Enforcement stays with goq/ci (the human
-  gate); this just makes the same signal legible to tools. Currently aggregates
-  ai-lint + structure-ratchet; dupl/budget (informational) fold in next.
-version: 1.0.0
+  gate); this just makes the same signal legible to tools. Aggregates ai-lint +
+  structure-ratchet (errors) and dupl + budget (informational warnings).
+version: 1.1.0
 
 props:
   go_tags:
@@ -47,6 +47,17 @@ steps:
       STRUCTURE_BASELINE="{{ props.structure_baseline }}"
       bash "{{ component_dir }}/scripts/structure-ratchet.sh" --format jsonl
       >> "{{ props.out }}" || true
+
+  # Informational emitters (level:warning) — never fail, so no `|| true` needed.
+  - name: collect dupl findings
+    shell: >-
+      bash "{{ component_dir }}/scripts/dupl-report.sh" --format jsonl
+      >> "{{ props.out }}"
+
+  - name: collect budget findings
+    shell: >-
+      bash "{{ component_dir }}/scripts/budget-status.sh" --format jsonl
+      >> "{{ props.out }}"
 
   # Cheap substring count — findings are one JSON object per line.
   - name: summarize

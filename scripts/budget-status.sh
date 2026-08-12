@@ -14,7 +14,57 @@ set -euo pipefail
 CAP_GOCYCLO="${CAP_GOCYCLO:-35}"
 CAP_GOD_LOC="${CAP_GOD_LOC:-500}"
 
+FORMAT="text"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --format)   FORMAT="${2:-}"; shift 2 ;;
+    --format=*) FORMAT="${1#*=}"; shift ;;
+    *) shift ;;
+  esac
+done
+
 cd "$(git rev-parse --show-toplevel)"
+
+# --- jsonl findings feed (dex #155) -------------------------------------------
+# The soft caps are informational (this script never fails the gate), so both
+# emit at level:warning. Kept as a self-contained branch so the human report
+# below stays byte-identical.
+if [ "$FORMAT" = "jsonl" ]; then
+  # `|| true` on both pipes: gocyclo -over exits non-zero when it reports funcs,
+  # and grep -v exits 1 on empty — under set -e + pipefail either would abort the
+  # sweep. These are informational emitters; a non-zero tool is never fatal here.
+  if command -v gocyclo >/dev/null 2>&1 || [ -x "$(go env GOPATH)/bin/gocyclo" ]; then
+    gocyclo -over "$CAP_GOCYCLO" . 2>/dev/null | grep -v '_test\.go' | python3 -c '
+import sys, json, re
+for line in sys.stdin:
+    p = line.split()
+    if len(p) < 4: continue
+    comp, pkg, fn, at = p[0], p[1], p[2], p[3]
+    m = re.match(r"(.+):(\d+):(\d+)$", at)
+    if not m: continue
+    print(json.dumps({"tool": "budget", "rule": "gocyclo-over", "level": "warning",
+                      "path": m.group(1), "line": int(m.group(2)), "col": int(m.group(3)),
+                      "message": f"gocyclo={comp} over cap: {pkg}.{fn}",
+                      "fingerprint": f"gocyclo-over:{m.group(1)}:{m.group(2)}"}))
+' || true
+  fi
+  find . -name '*.go' -not -name '*_test.go' \
+       -not -path './vendor/*' -not -path './.git/*' -not -path './.claude/*' \
+       -exec wc -l {} + 2>/dev/null \
+    | awk -v cap="$CAP_GOD_LOC" '$1 > cap && $2 != "total" {print}' \
+    | python3 -c '
+import sys, json
+for line in sys.stdin:
+    p = line.split()
+    if len(p) < 2: continue
+    loc, path = p[0], p[1]
+    print(json.dumps({"tool": "budget", "rule": "god-file", "level": "warning",
+                      "path": path, "line": 1,
+                      "message": f"{loc} LOC (over cap)",
+                      "fingerprint": f"god-file:{path}:1"}))
+' || true
+  exit 0
+fi
 
 if [ -t 1 ]; then
   bold=$(tput bold 2>/dev/null || true)

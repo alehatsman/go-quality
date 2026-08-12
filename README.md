@@ -57,9 +57,10 @@ routed to stderr) in a shared schema:
 
 Fields: `tool, rule, level (error|warning|note), path, line, col?, message,
 fingerprint`. `level:error` = gate-failing — the same signal the human gate
-enforces. Emitters so far: `ai-lint` (every smell = error), `structure-ratchet`
-(NEW offenders = error, improvements = note). Text output is byte-identical
-without the flag.
+enforces. Emitters: `ai-lint` (every smell = error), `structure-ratchet` (NEW
+offenders = error, improvements = note), `dupl` (clone pairs = warning),
+`budget` (god files + over-cap complexity = warning). Text output is
+byte-identical without the flag.
 
 The **`goq/findings`** preset (`findings.yml`) aggregates every emitter into one
 `.gate/findings.jsonl` artifact (gitignored, truncated per run). It is a **pure
