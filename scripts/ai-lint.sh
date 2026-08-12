@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # ai-lint — sweep Go source for patterns that AI agents commonly leave behind.
 #
-# Output (machine-readable, one finding per line):
-#   path:line: rule: message
+# Output (one finding per line):
+#   text  (default): path:line: rule: message
+#   jsonl (--format jsonl): a structured finding object per line —
+#     {"tool":"ai-lint","rule":..,"level":"error","path":..,"line":N,
+#      "message":..,"fingerprint":"rule:path:line"}
+#     stdout stays pure JSONL; human status/summary go to stderr. This is the
+#     shared gate finding schema (dex #155 P0) — the pilot for making every gate
+#     step machine-readable. Exit code is unchanged in both modes.
 #
 # Rules (intentionally narrow — false positives erode trust fast):
 #   stub-panic     panic("not implemented" | "unimplemented" | "TODO" | "FIXME" | "placeholder")
@@ -21,21 +27,34 @@
 #   bash scripts/ai-lint.sh                # scan staged Go files (pre-commit mode)
 #   bash scripts/ai-lint.sh --all          # scan every tracked Go file
 #   bash scripts/ai-lint.sh --warn-only    # always exit 0, just report
+#   bash scripts/ai-lint.sh --format jsonl # emit structured findings (JSONL) on stdout
 #   bash scripts/ai-lint.sh path/file.go   # scan explicit files
 set -euo pipefail
 
 mode="staged"
 warn_only=0
+format="text"
 explicit=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --all) mode="all"; shift ;;
     --warn-only) warn_only=1; shift ;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+    --format) format="${2:-}"; shift 2 ;;
+    --format=*) format="${1#*=}"; shift ;;
+    -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
     --) shift; explicit+=("$@"); break ;;
     *)  explicit+=("$1"); shift ;;
   esac
 done
+
+case "$format" in
+  text|jsonl) ;;
+  *) echo "ai-lint: unknown --format '$format' (want text|jsonl)" >&2; exit 2 ;;
+esac
+
+# In jsonl mode stdout must stay pure JSONL, so human status/summary go to
+# stderr. `say` centralizes that routing (text mode: stdout as before).
+say() { if [ "$format" = "jsonl" ]; then echo "$@" >&2; else echo "$@"; fi; }
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -64,15 +83,32 @@ for f in "${raw[@]+"${raw[@]}"}"; do
 done
 
 if [ "${#files[@]}" -eq 0 ]; then
-  echo "  ai-lint: no Go files to scan."
+  say "  ai-lint: no Go files to scan."
   exit 0
 fi
 
 # --- rules --------------------------------------------------------------------
 # run_rule <name> <egrep-pattern> <message> [scope: all|non-test]
 findings=0
-emit() {  # path lineno rule message
-  printf '%s:%s: %s: %s\n' "$1" "$2" "$3" "$4"
+
+# json_str — emit a JSON-escaped double-quoted string for arbitrary text.
+# Handles the two bytes that can appear in a path/message and break JSON: the
+# backslash and the double-quote. Messages are static and paths are Go source
+# files, so no control chars are in play; keep it boring.
+json_str() {
+  local s="$1"
+  s="${s//\\/\\\\}"   # \ -> \\   (must run first)
+  s="${s//\"/\\\"}"   # " -> \"
+  printf '"%s"' "$s"
+}
+
+emit() {  # path lineno rule message  (all rules here are gate-failing -> level error)
+  if [ "$format" = "jsonl" ]; then
+    printf '{"tool":"ai-lint","rule":%s,"level":"error","path":%s,"line":%s,"message":%s,"fingerprint":%s}\n' \
+      "$(json_str "$3")" "$(json_str "$1")" "$2" "$(json_str "$4")" "$(json_str "$3:$1:$2")"
+  else
+    printf '%s:%s: %s: %s\n' "$1" "$2" "$3" "$4"
+  fi
   findings=$((findings + 1))
 }
 
@@ -109,11 +145,11 @@ run_rule diff-relic \
 
 # --- report -------------------------------------------------------------------
 if [ "$findings" -eq 0 ]; then
-  echo "  ✓ ai-lint: no AI-smell findings in ${#files[@]} file(s)."
+  say "  ✓ ai-lint: no AI-smell findings in ${#files[@]} file(s)."
   exit 0
 fi
 
-echo ""
-echo "  ai-lint: $findings finding(s) in ${#files[@]} file(s)."
+say ""
+say "  ai-lint: $findings finding(s) in ${#files[@]} file(s)."
 [ "$warn_only" -eq 1 ] && exit 0
 exit 1
