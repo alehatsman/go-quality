@@ -25,7 +25,7 @@ done
 
 cd "$(git rev-parse --show-toplevel)"
 
-# --- jsonl findings feed (dex #155) -------------------------------------------
+# --- jsonl findings feed -------------------------------------------
 # The soft caps are informational (this script never fails the gate), so both
 # emit at level:warning. Kept as a self-contained branch so the human report
 # below stays byte-identical.

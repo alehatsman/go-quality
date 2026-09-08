@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # findings-to-sarif — project the JSONL findings stream (.gate/findings.jsonl,
-# the goq/findings artifact) into SARIF 2.1.0 on stdout (dex #155 P2).
+# the goq/findings artifact) into SARIF 2.1.0 on stdout.
 #
 # A pure, leaf projection: no analysis of its own, just a format change so the
 # same findings upload to GitHub code scanning and render in IDEs. The finding

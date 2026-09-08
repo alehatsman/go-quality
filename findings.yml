@@ -1,8 +1,8 @@
 name: go-quality-findings
 description: >-
   Aggregate every gate step's `--format jsonl` output into one machine-readable
-  findings stream (.gate/findings.jsonl) — the agent-facing view of the gate
-  (dex #155 P1). A pure artifact producer: emitters never abort the aggregation
+  findings stream (.gate/findings.jsonl) — the agent-facing view of the gate.
+  A pure artifact producer: emitters never abort the aggregation
   and this preset does not re-gate. Enforcement stays with goq/ci (the human
   gate); this just makes the same signal legible to tools. Aggregates ai-lint,
   structure-ratchet, deps and lint-config-check (errors) plus dupl and budget

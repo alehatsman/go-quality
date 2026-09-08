@@ -1,7 +1,7 @@
 name: go-quality-sarif
 description: >-
   Project the JSONL gate findings (.gate/findings.jsonl) into SARIF 2.1.0
-  (.gate/findings.sarif) for GitHub code scanning / IDE ingestion (dex #155 P2).
+  (.gate/findings.sarif) for GitHub code scanning / IDE ingestion.
   A pure leaf projection — run on demand or in CI after goq/findings, never in
   the local fast path.
 version: 1.0.0

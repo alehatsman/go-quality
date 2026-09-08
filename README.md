@@ -22,13 +22,6 @@ exists to catch the copy that drifted.
 dependency, and consume `.gate/findings.jsonl` (`goq/findings`) for the machine
 view of what the gate found.
 
-Rust sibling: **[rust-quality](https://github.com/alehatsman/rust-quality)** —
-same shape, same JSONL finding schema, same gate composition, adapted where Rust
-differs (a canonical `[workspace.lints]` block instead of `.golangci.yml`,
-cargo-deny instead of govulncheck, no clone detection). Changes to the shared
-conventions — the finding schema, the `--format jsonl` contract, the ai-lint
-rule set, the fast/full gate split — should land in both.
-
 ## What's here
 
 ```
@@ -305,4 +298,4 @@ A module-level default prop is applied **only to the exports that declare it**
 `budget-status`); a per-call `props:` overrides. `mooncake task` lists each
 component's own `description:`, so the shorthand tasks need no `desc:`.
 
-The full export catalog + the first tagged release are tracked in #95 (G2).
+The full export catalog is `index.yml`.

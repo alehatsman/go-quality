@@ -6,9 +6,9 @@
 #   jsonl (--format jsonl): a structured finding object per line —
 #     {"tool":"ai-lint","rule":..,"level":"error","path":..,"line":N,
 #      "message":..,"fingerprint":"rule:path:line"}
-#     stdout stays pure JSONL; human status/summary go to stderr. This is the
-#     shared gate finding schema (dex #155 P0) — the pilot for making every gate
-#     step machine-readable. Exit code is unchanged in both modes.
+#     stdout stays pure JSONL; human status/summary go to stderr. The schema
+#     itself lives in scripts/lib/findings.sh. Exit code is unchanged in both
+#     modes.
 #
 # Rules (intentionally narrow — false positives erode trust fast):
 #   stub-panic     panic("not implemented" | "unimplemented" | "TODO" | "FIXME" | "placeholder")
