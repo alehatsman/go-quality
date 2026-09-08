@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # ci/full.sh — shared pre-push gate. First failure stops the pipeline.
 #
-#   [1/9] build (compile-check ./...)
-#   [2/9] test
-#   [3/9] go mod tidy drift check
-#   [4/9] golangci-lint (worktree-scoped cache; sibling-safe)
-#   [5/9] govulncheck
-#   [6/9] arch-snapshot summary (regenerated; file is gitignored)
-#   [7/9] code-quality soft-cap budget
-#   [8/9] dupl production duplication report (informational)
-#   [9/9] structure-ratchet (opt-in; enforces structural metrics vs baseline)
+#   [1/10] build (compile-check ./...)
+#   [2/10] test
+#   [3/10] go mod tidy drift check
+#   [4/10] golangci-lint (worktree-scoped cache; sibling-safe)
+#   [5/10] govulncheck
+#   [6/10] arch-snapshot summary (regenerated; file is gitignored)
+#   [7/10] code-quality soft-cap budget
+#   [8/10] dupl production duplication report (informational)
+#   [9/10] deps: go mod verify + direct-dep cap + opt-in new-dep detection
+#   [10/10] structure-ratchet (opt-in; enforces structural metrics vs baseline)
 #
 # This is the project-agnostic core. Projects that need extra gates (docs/schema
 # regen + verify-clean, mkdocs --strict, bespoke lints) layer them in their own
@@ -33,15 +34,15 @@ SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "$(git rev-parse --show-toplevel)"
 
-echo "[1/9] build"
+echo "[1/10] build"
 go build "${tags_args[@]+"${tags_args[@]}"}" "$PKG"
 
-echo "[2/9] test"
+echo "[2/10] test"
 go test "${tags_args[@]+"${tags_args[@]}"}" "$PKG"
 
 # Pre-commit (fast.sh) already guards this, but pre-push must not trust that a
 # hook ran — a commit pushed from CI or with --no-verify can still drift go.mod.
-echo "[3/9] go mod tidy (drift check)"
+echo "[3/10] go mod tidy (drift check)"
 go mod tidy
 if ! git diff --quiet go.mod go.sum; then
   echo "  ✗ go.mod / go.sum out of sync — run 'go mod tidy', commit the result, and re-push" >&2
@@ -50,7 +51,7 @@ if ! git diff --quiet go.mod go.sum; then
 fi
 echo "  ✓ go.mod / go.sum are tidy"
 
-echo "[4/9] golangci-lint (worktree-scoped cache)"
+echo "[4/10] golangci-lint (worktree-scoped cache)"
 # Scope the cache to this checkout path so sibling worktrees don't leak phantom
 # findings into each other. No clean needed — warm cache is reused across runs
 # in the same worktree.
@@ -62,10 +63,10 @@ else
   golangci-lint run "$PKG"
 fi
 
-echo "[5/9] govulncheck"
+echo "[5/10] govulncheck"
 govulncheck "${tags_args[@]+"${tags_args[@]}"}" "$PKG"
 
-echo "[6/9] arch-snapshot (regenerated; file is gitignored)"
+echo "[6/10] arch-snapshot (regenerated; file is gitignored)"
 GO_TAGS="$GO_TAGS" bash "$SCRIPTS_DIR/arch-snapshot.sh" >/dev/null
 snap=docs-working/ARCH_SNAPSHOT.md
 if [ -f "$snap" ]; then
@@ -81,15 +82,23 @@ if [ -f "$snap" ]; then
   set -o pipefail
 fi
 
-echo "[7/9] code-quality soft-cap budget"
+echo "[7/10] code-quality soft-cap budget"
 bash "$SCRIPTS_DIR/budget-status.sh" | sed 's/^/  /'
 
-echo "[8/9] dupl (production-code duplication report)"
+echo "[8/10] dupl (production-code duplication report)"
 bash "$SCRIPTS_DIR/dupl-report.sh" --ci
+
+# Offline: go mod verify plus the direct-dependency soft cap. New-dependency
+# enforcement is opt-in and only engages once benchmark/deps/baseline.txt exists.
+# No --updates here — the push gate does not make network calls.
+echo "[9/10] deps (dependency-surface hygiene)"
+CAP_DIRECT_DEPS="${CAP_DIRECT_DEPS:-40}" \
+  DEPS_BASELINE="${DEPS_BASELINE:-benchmark/deps/baseline.txt}" \
+  bash "$SCRIPTS_DIR/deps-status.sh" --ci
 
 # Opt-in: skips cleanly for projects without benchmark/structure/baseline.json.
 # --ci makes a missing tool fatal (consistent with the rest of the pre-push gate).
-echo "[9/9] structure-ratchet (opt-in structural metric enforcement)"
+echo "[10/10] structure-ratchet (opt-in structural metric enforcement)"
 # No pipe: piping through sed would swallow a non-zero exit under pipefail.
 # The script indents its own output.
 GO_TAGS="$GO_TAGS" DEADCODE_PKG="${DEADCODE_PKG:-./...}" \

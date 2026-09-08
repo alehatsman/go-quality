@@ -1,0 +1,32 @@
+name: go-quality-race
+description: >-
+  Run the test suite under the race detector. Out of band by design: -race
+  roughly doubles wall-clock and needs cgo, so goq/ci leaves it out and this
+  export makes it a deliberate call (nightly, pre-release, or after touching
+  anything concurrent).
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags (e.g. "sqlite_fts5"). Empty = none.
+  pkg:
+    type: string
+    default: "./..."
+    description: Package pattern to test.
+  count:
+    type: string
+    default: "1"
+    description: >-
+      -count value. The race detector only sees interleavings that actually
+      happen; raise this to shake out a suspected flake.
+
+steps:
+  # CGO_ENABLED=1 is explicit: the race detector needs cgo, and a consumer
+  # building with CGO_ENABLED=0 elsewhere would otherwise get a confusing
+  # "-race requires cgo" failure here.
+  - name: go test -race
+    shell: >-
+      CGO_ENABLED=1 go test -race -count={{ props.count }}
+      {% if props.go_tags %}-tags "{{ props.go_tags }}"{% endif %} {{ props.pkg }}

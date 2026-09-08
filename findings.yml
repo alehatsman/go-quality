@@ -4,9 +4,11 @@ description: >-
   findings stream (.gate/findings.jsonl) — the agent-facing view of the gate
   (dex #155 P1). A pure artifact producer: emitters never abort the aggregation
   and this preset does not re-gate. Enforcement stays with goq/ci (the human
-  gate); this just makes the same signal legible to tools. Aggregates ai-lint +
-  structure-ratchet (errors) and dupl + budget (informational warnings).
-version: 1.1.0
+  gate); this just makes the same signal legible to tools. Aggregates ai-lint,
+  structure-ratchet, deps and lint-config-check (errors) plus dupl and budget
+  (informational warnings). Stays offline and never runs the test suite, so
+  goq/cov is deliberately not an emitter here.
+version: 1.2.0
 
 props:
   go_tags:
@@ -21,6 +23,14 @@ props:
     type: string
     default: "benchmark/structure/baseline.json"
     description: Structural ratchet baseline (opt-in; absent = ratchet emits nothing).
+  cap_direct_deps:
+    type: string
+    default: "40"
+    description: Direct-dependency soft cap for the deps emitter.
+  deps_baseline:
+    type: string
+    default: "benchmark/deps/baseline.txt"
+    description: Direct-dependency allowlist (opt-in; absent = deps emits count findings only).
   out:
     type: string
     default: ".gate/findings.jsonl"
@@ -57,6 +67,21 @@ steps:
   - name: collect budget findings
     shell: >-
       bash "{{ component_dir }}/scripts/budget-status.sh" --format jsonl
+      >> "{{ props.out }}"
+
+  # `--warn-only`: a dependency that is new relative to the baseline is a
+  # gate-failing finding in goq/ci, but here we only want it on the stream.
+  # No `--updates` — the aggregator stays offline.
+  - name: collect deps findings
+    shell: >-
+      CAP_DIRECT_DEPS="{{ props.cap_direct_deps }}"
+      DEPS_BASELINE="{{ props.deps_baseline }}"
+      bash "{{ component_dir }}/scripts/deps-status.sh" --format jsonl --warn-only
+      >> "{{ props.out }}"
+
+  - name: collect lint-config-check findings
+    shell: >-
+      bash "{{ component_dir }}/scripts/lint-config-check.sh" --format jsonl --warn-only
       >> "{{ props.out }}"
 
   # Cheap substring count — findings are one JSON object per line. `grep -c`

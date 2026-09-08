@@ -1,8 +1,9 @@
 name: go-quality-ci-fast
 description: >-
-  Fast pre-commit gate — go vet + gofmt (staged) + ai-lint (staged) + budget.
-  Runs scripts/ci/fast.sh in the consumer's cwd.
-version: 1.0.0
+  Fast pre-commit gate — go vet + tidy + gofmt (staged) + ai-lint (staged) +
+  budget + .golangci.yml drift check. Runs scripts/ci/fast.sh in the consumer's
+  cwd.
+version: 1.1.0
 
 props:
   go_tags:

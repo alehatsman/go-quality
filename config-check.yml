@@ -1,0 +1,23 @@
+name: go-quality-config-check
+description: >-
+  Assert the consumer's .golangci.yml still matches the canonical baseline
+  shipped in this module. golangci-lint v2 has no config-merge, so a copied
+  config can silently lose a linter; this catches that drift. Enforcement only —
+  it never rewrites the file (goq/sync-config does that).
+version: 1.0.0
+
+props:
+  config:
+    type: string
+    default: ".golangci.yml"
+    description: Consumer config to check, relative to the repo root.
+  format:
+    type: string
+    default: ""
+    description: Set to "--format jsonl" for machine-readable findings.
+
+steps:
+  - name: lint-config-check
+    shell: >-
+      bash "{{ component_dir }}/scripts/lint-config-check.sh"
+      --config "{{ props.config }}" --ci {{ props.format }}

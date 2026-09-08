@@ -1,0 +1,43 @@
+name: go-quality-cov
+description: >-
+  Test coverage report with an opt-in monotonic floor. Reports always; fails only
+  once benchmark/coverage/baseline.txt is committed, after which coverage may
+  rise freely and may not fall. Out of band — it re-runs the whole suite, so it
+  does not belong on the push path.
+version: 1.0.0
+
+props:
+  go_tags:
+    type: string
+    default: ""
+    description: Build tags (e.g. "sqlite_fts5"). Empty = none.
+  pkg:
+    type: string
+    default: "./..."
+    description: Package pattern to measure.
+  cov_min:
+    type: string
+    default: "0"
+    description: >-
+      Floor in percent when no baseline is committed. 0 = report only. A
+      committed baseline overrides this.
+  cov_baseline:
+    type: string
+    default: "benchmark/coverage/baseline.txt"
+    description: Committed coverage floor. Create with `scripts/cov.sh --refresh`.
+  refresh:
+    type: string
+    default: ""
+    description: Set to "--refresh" to rewrite the floor from the current total.
+  format:
+    type: string
+    default: ""
+    description: Set to "--format jsonl" for machine-readable findings.
+
+steps:
+  - name: cov
+    shell: >-
+      GO_TAGS="{{ props.go_tags }}" PKG="{{ props.pkg }}"
+      COV_MIN="{{ props.cov_min }}" COV_BASELINE="{{ props.cov_baseline }}"
+      bash "{{ component_dir }}/scripts/cov.sh"
+      --ci {{ props.refresh }} {{ props.format }}

@@ -1,7 +1,8 @@
 name: go-quality
 description: >-
-  Shared Go quality-gate toolchain — one canonical lint config, static-analysis
-  scripts, and CI gates for mooncake, dex, moongit, and future Go repos.
+  Shared Go quality toolchain — the agent-facing Go guide (docs/GO.md,
+  docs/STACK.md) plus one canonical lint config, static-analysis scripts, and CI
+  gates for mooncake, dex, moongit, and future Go repos.
 # Export names map to component (preset) files at the module root. component_dir
 # resolves to filepath.Dir of the component file, so keeping these at the root
 # (alongside scripts/ and .golangci.yml) lets each component reference
@@ -26,6 +27,12 @@ exports:
   arch-snapshot: arch-snapshot.yml
   budget-status: budget-status.yml
   dupl: dupl.yml
+  deps: deps.yml              # go mod verify + direct-dep cap + opt-in new-dep detection
+  config-check: config-check.yml   # .golangci.yml drift vs the canonical baseline
   structure-ratchet: structure-ratchet.yml  # opt-in monotonic structural ratchet
   findings: findings.yml      # aggregate --format jsonl findings -> .gate/findings.jsonl (agent-facing)
   sarif: sarif.yml            # project findings.jsonl -> SARIF 2.1.0 (GitHub code scanning / IDEs)
+
+  # Out-of-band stages — too slow for the push path, run deliberately
+  cov: cov.yml                # coverage report + opt-in monotonic floor
+  race: race.yml              # go test -race

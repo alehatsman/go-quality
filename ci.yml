@@ -1,8 +1,9 @@
 name: go-quality-ci
 description: >-
-  Full pre-push gate — build + test + golangci-lint + govulncheck + arch-snapshot
-  + budget + dupl. Runs scripts/ci/full.sh in the consumer's cwd.
-version: 1.0.0
+  Full pre-push gate — build + test + tidy + golangci-lint + govulncheck +
+  arch-snapshot + budget + dupl + deps + structure-ratchet. Runs
+  scripts/ci/full.sh in the consumer's cwd.
+version: 1.1.0
 
 props:
   go_tags:
@@ -24,10 +25,19 @@ props:
     type: string
     default: "benchmark/structure/baseline.json"
     description: Path to the committed structural ratchet baseline (opt-in; absent = skipped).
+  cap_direct_deps:
+    type: string
+    default: "40"
+    description: Direct-dependency soft cap for the deps stage. Exceeding it warns, never fails.
+  deps_baseline:
+    type: string
+    default: "benchmark/deps/baseline.txt"
+    description: Committed direct-dependency allowlist (opt-in; absent = new-dep enforcement off).
 
 steps:
   - name: go-quality full gate
     shell: >-
       GO_TAGS="{{ props.go_tags }}" PKG="{{ props.pkg }}"
       DEADCODE_PKG="{{ props.deadcode_pkg }}" STRUCTURE_BASELINE="{{ props.structure_baseline }}"
+      CAP_DIRECT_DEPS="{{ props.cap_direct_deps }}" DEPS_BASELINE="{{ props.deps_baseline }}"
       bash "{{ component_dir }}/scripts/ci/full.sh"

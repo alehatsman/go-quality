@@ -40,7 +40,12 @@ INDENT=""
 [ "$CI_MODE" = "1" ] && INDENT="  "
 
 # Clone pairs are informational (dupl never fails the gate) → level:warning.
-dupl -threshold "$T" -plumbing . 2>&1 | grep -v "_test.go" | T="$T" INDENT="$INDENT" FORMAT="$FORMAT" python3 -c '
+#
+# `{ grep ... || true; }`: grep exits 1 when it emits no lines, which is exactly
+# what a repo with zero duplication produces. Under `pipefail` that non-zero
+# status became the script's status, so a *clean* repo failed the gate while a
+# duplicated one passed. Guard it so "no clones" reaches python as empty input.
+dupl -threshold "$T" -plumbing . 2>&1 | { grep -v "_test.go" || true; } | T="$T" INDENT="$INDENT" FORMAT="$FORMAT" python3 -c '
 import os, sys, json
 T = os.environ.get("T", "100")
 INDENT = os.environ.get("INDENT", "")

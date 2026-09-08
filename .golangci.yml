@@ -2,25 +2,32 @@ version: "2"
 
 # Shared baseline golangci-lint config for Go projects in this fleet.
 #
-# This is the COMMON core reconciled from mooncake + dex: the bug-catching
-# linter selection, the cyclop soft-cap (35), the staticcheck check set, the
-# base gosec excludes, and the revive rule set. Consumers layer their own
-# project-specific `exclusions.rules` on top (each project's excludes are
-# bound to concrete file paths and stay local). golangci-lint v2 has no native
-# config-merge, so a project either copies this file and appends its excludes,
-# or the go-quality component drops it in as the starting point.
+# This is the canonical linter selection. It has one job beyond catching bugs:
+# every rule in docs/GO.md marked [gate] is enforced from here or from a script
+# in scripts/. The document and this file are meant to agree — if you change one
+# and not the other, the guide has started lying.
+#
+# Consumers layer their own project-specific `exclusions.rules` on top (each
+# project's excludes are bound to concrete file paths and stay local).
+# golangci-lint v2 has no native config-merge, so a project copies this file via
+# `goq/sync-config` and appends its excludes; `goq/config-check` then asserts the
+# copy has not drifted from the canonical `enable:` list.
+#
+# Verified against golangci-lint v2.13 (2026-08-27).
 
 run:
   timeout: 5m
-  tests: false
+  # Tests ARE linted. Without this, every test rule in docs/GO.md is
+  # unenforceable and usetesting / testifylint / tparallel are dead weight. The
+  # `_test.go` exclusion block below relaxes the linters that legitimately do
+  # not apply to test code.
+  tests: true
 
 linters:
   # Pragmatic stance: enable bug-catching linters, disable style-pedantry ones.
-  # The dropped linters (gocritic / unparam / dupl / prealloc) flag legitimate
-  # design choices as problems; the gocyclo/dupl soft-cap discipline (see
-  # scripts/budget-status.sh + scripts/dupl-report.sh) covers the complexity
-  # and duplication ratchet without per-PR noise.
+  # Grouped by what they defend, so a reader can tell why each one is here.
   enable:
+    # --- core: the original fleet baseline ---
     - gosec
     - errcheck
     - staticcheck
@@ -32,18 +39,81 @@ linters:
     - bodyclose
     - revive
     - cyclop
-    - nilerr    # return nil when err is non-nil — silent data loss
-    - noctx     # HTTP calls without context — misses cancellation propagation
+
+    # --- errors: GO.md §5 ---
+    - errorlint        # %v on an error where %w was meant; err == Sentinel; err.(*T)
+    - errchkjson       # json.Marshal on an unmarshalable type / droppable error
+    - nilerr           # return nil when err is non-nil — silent data loss
+    - nilnesserr       # checks err != nil but returns a *different* nil error
+    - nilnil           # returns (nil, nil) from a (T, error) signature
+    - forcetypeassert  # x.(T) without the comma-ok — an unhandled panic source
+
+    # --- context: GO.md §7 ---
+    - noctx            # HTTP/SQL calls without context — misses cancellation
+    - containedctx     # context.Context stored in a struct field
+    - contextcheck     # function drops the inherited ctx for a fresh Background()
+    - fatcontext       # context repeatedly wrapped inside a loop
+
+    # --- concurrency & resource lifetime: GO.md §6, §8 ---
+    - sqlclosecheck    # sql.Rows / sql.Stmt never closed
+    - rowserrcheck     # rows.Err() never checked — silently truncated result set
+    - durationcheck    # two Durations multiplied — almost always a unit bug
+    - makezero         # make([]T, n) then append — n zero values you did not want
+    - wastedassign     # value assigned then overwritten before any read
+    - recvcheck        # mixed pointer/value receivers on one type
+    - tparallel        # t.Parallel() used in a way that does not do what you think
+
+    # --- correctness, miscellaneous ---
+    - asasalint        # []any passed as a single any to a variadic func
+    - bidichk          # bidirectional-unicode trojan source
+    - predeclared      # shadowing len/cap/new/min/max/any
+    - reassign         # reassigning another package's exported variable
+    - iotamixing       # iota in a const block mixed with non-iota declarations
+    - gocheckcompilerdirectives  # a typo'd //go: directive is a silent no-op
+    - musttag          # struct marshaled without the tags it needs
+    - spancheck        # OpenTelemetry span never ended / error never recorded
+
+    # --- modernization: GO.md §2 ---
+    # `modernize` is the go fix modernizer suite (minmax, rangeint, slicescontains,
+    # stringscut, waitgroupgo, testingcontext, errorsastype, …). Nearly all of it
+    # is auto-fixable: `golangci-lint run --fix`. It subsumes copyloopvar (forvar)
+    # and intrange (rangeint), so neither is enabled separately.
+    - modernize
+    - exptostd         # golang.org/x/exp call that std has absorbed
+
+    # --- logging: GO.md §9 ---
+    - sloglint
+
+    # --- tests: GO.md §10 ---
+    - usetesting       # t.Context/t.TempDir/t.Setenv/t.Chdir over the os equivalents
+    - testifylint      # no-op unless the project uses testify
+
   disable:
-    - errname
-    - exhaustive
-    - wrapcheck
-    - goconst
-    - gocyclo     # superseded by cyclop (single cyclomatic source); arch-snapshot uses gocyclo standalone for the soft-cap ratchet
-    - gocritic    # mostly style; the project's review process handles ifElseChain / typeSwitchVar etc.
-    - unparam     # flags interface contracts that always return nil err as "problems"; not actionable
-    - dupl        # over-eager; scripts/dupl-report.sh gives a better targeted report
-    - prealloc    # micro-optimisation noise; profile-driven not lint-driven
+    # Each of these was considered and rejected. Kept listed so nobody
+    # re-introduces one without reading why it went.
+    - errname       # sentinel/type naming — revive's error-naming covers the real cases
+    - exhaustive    # every enum switch needs a default or every case; too rigid for open enums
+    - wrapcheck     # demands wrapping at boundaries it cannot infer; errorlint covers the bugs
+    - goconst       # repeated string literals are often clearer than a named constant
+    - gocyclo       # superseded by cyclop (single cyclomatic source); arch-snapshot uses gocyclo standalone for the soft-cap ratchet
+    - gocritic      # mostly style; the project's review process handles ifElseChain / typeSwitchVar etc.
+    - unparam       # flags interface contracts that always return nil err as "problems"; not actionable
+    - dupl          # over-eager; scripts/dupl-report.sh gives a better targeted report
+    - prealloc      # micro-optimisation noise; profile-driven not lint-driven
+    - perfsprint    # same category as prealloc — Sprintf→strconv is a profiler's call, not a linter's
+    - paralleltest  # demands t.Parallel() everywhere; not every test may run in parallel
+    - varnamelen    # `i`, `w`, `r`, `tt` are idiomatic Go, not violations
+    - exhaustruct   # zero values are a Go feature; this makes them a lint error
+    - gochecknoglobals  # package-level sentinel errors and registries are idiomatic
+    - err113        # forbids fmt.Errorf with dynamic values; fights the language
+    - ireturn       # "return concrete types" is a guideline with real exceptions
+    - mnd           # magic-number detection is ~all false positives in real code
+    - funlen        # length is the wrong proxy; cyclop + the god-file cap are the ratchet
+    - nlreturn      # blank-line placement
+    - wsl_v5        # blank-line placement, more of it
+    - lll           # line length; gofmt does not wrap and neither should a human
+    - godot         # comments ending in a period
+    - noinlineerr   # forbids `if err := f(); err != nil` — the most idiomatic form there is
 
   settings:
     gosec:
@@ -70,9 +140,38 @@ linters:
       check-type-assertions: true
       check-blank: false
 
+    errorlint:
+      errorf: true        # fmt.Errorf("...: %v", err) where %w was meant
+      errorf-multi: true  # multiple %w in one Errorf
+      asserts: true       # err.(*MyErr) instead of errors.As
+      comparison: true    # err == ErrSentinel instead of errors.Is
+
+    sloglint:
+      # Backs the structured-logging rules in GO.md §9.
+      no-mixed-args: true  # don't mix key-value pairs and slog.Attr in one call
+      static-msg: true     # the message is a constant; variable data goes in attrs
+      context: scope       # use the ctx-aware variant when a context is in scope
+
+    usetesting:
+      os-setenv: true
+      os-temp-dir: true
+      context-background: true
+      context-todo: true
+
+    nilnil:
+      # A (nil, nil) return forces every caller into a third branch they will
+      # forget. Checked for pointers, funcs, interfaces, maps and channels.
+      checked-types:
+        - ptr
+        - func
+        - iface
+        - map
+        - chan
+
     revive:
       enable-all-rules: false
       rules:
+        # --- original baseline ---
         - name: blank-imports
         - name: context-as-argument
         - name: context-keys-type
@@ -95,6 +194,21 @@ linters:
         - name: superfluous-else
         - name: unused-parameter
         - name: unreachable-code
+        # --- added: bug-catching, not style ---
+        - name: atomic                    # sync/atomic misuse (x = atomic.AddInt64(&x, 1))
+        - name: defer                     # defer in a loop, defer of a recover, …
+        - name: unconditional-recursion   # a method that always calls itself
+        - name: identical-branches        # if/else with the same body
+        - name: constant-logical-expr     # `x == x`, `a && a`
+        - name: bool-literal-in-expr      # `x == true`
+        - name: duplicated-imports        # same package imported twice
+        - name: modifies-value-receiver   # mutation that silently goes nowhere
+        - name: string-of-int             # string(intVal) — almost never intended
+        - name: time-equal                # t1 == t2 compares monotonic clocks too
+        - name: waitgroup-by-value        # a copied WaitGroup never completes
+        - name: redefines-builtin-id      # `len := ...`
+        - name: useless-break
+        - name: struct-tag                # malformed / duplicated struct tags
 
     staticcheck:
       # Keep SA* (the real-bug checks); drop QF/ST/S style suggestions.
@@ -102,10 +216,36 @@ linters:
       checks: ["all", "-QF*", "-ST1005", "-ST1020", "-S1008", "-S1017", "-S1034"]
 
   exclusions:
-    # Project-specific exclusions live in the consumer's own .golangci.yml.
-    # Keep this baseline clean — path-bound excludes do not generalise.
-    rules: []
+    # Generated files are somebody else's problem. `lax` skips anything whose
+    # header matches the standard "Code generated ... DO NOT EDIT." marker.
+    generated: lax
 
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
+    # The ONLY baseline exclusions are the test-file relaxations that every repo
+    # in the fleet needs — they exist because `run.tests: true` is on.
+    # Project-specific, path-bound exclusions live in the consumer's own file.
+    rules:
+      - path: '_test\.go'
+        linters:
+          - errcheck         # a failed setup call fails the test anyway
+          - gosec            # hardcoded creds and weak RNG are fine in fixtures
+          - cyclop           # table-driven tests are one long, flat function
+          - bodyclose        # httptest response bodies die with the test
+          - noctx            # test requests do not need cancellation plumbing
+          - forcetypeassert  # a bad assertion in a test is a test failure, correctly
+          - containedctx     # test fixtures legitimately carry a ctx
+          - contextcheck
+          - musttag
+      - path: '_test\.go'
+        text: 'unused-parameter'
+        linters:
+          - revive           # func TestX(t *testing.T) with an unused t is normal
+
+formatters:
+  # Formatting is checked as part of `golangci-lint run`, which closes the gap
+  # left by ci/fast.sh (it only gofmt-checks *staged* files).
+  #
+  # `local-prefixes` is the one setting a consumer is expected to add locally:
+  #   formatters: { settings: { goimports: { local-prefixes: [github.com/you/repo] } } }
+  enable:
+    - gofmt
+    - goimports

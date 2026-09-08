@@ -1,0 +1,39 @@
+name: go-quality-deps
+description: >-
+  Dependency-surface hygiene: go mod verify, a direct-dependency soft cap, and
+  opt-in new-dependency detection against a committed baseline. The nearest Go
+  analogue to a dependency-policy gate. Offline by default; pass updates to also
+  report available upgrades.
+version: 1.0.0
+
+props:
+  cap_direct_deps:
+    type: string
+    default: "40"
+    description: Soft cap on direct dependencies. Exceeding it is a warning, not a failure.
+  deps_baseline:
+    type: string
+    default: "benchmark/deps/baseline.txt"
+    description: >-
+      Committed direct-dependency allowlist. Absent = new-dep enforcement off
+      (the gate still reports). Create with `scripts/deps-status.sh --refresh`.
+  updates:
+    type: string
+    default: ""
+    description: Set to "--updates" to also report available upgrades (needs the network).
+  refresh:
+    type: string
+    default: ""
+    description: Set to "--refresh" to rewrite the baseline from the current go.mod.
+  format:
+    type: string
+    default: ""
+    description: Set to "--format jsonl" for machine-readable findings.
+
+steps:
+  - name: deps-status
+    shell: >-
+      CAP_DIRECT_DEPS="{{ props.cap_direct_deps }}"
+      DEPS_BASELINE="{{ props.deps_baseline }}"
+      bash "{{ component_dir }}/scripts/deps-status.sh"
+      --ci {{ props.updates }} {{ props.refresh }} {{ props.format }}
