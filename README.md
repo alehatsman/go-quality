@@ -5,6 +5,13 @@ the lint config, static-analysis scripts, and CI gates used across `mooncake`,
 `dex`, `moongit`, and future Go repos. Consumed as a [mooncake](http://127.0.0.1:8080/alehatsman/mooncake)
 module.
 
+Rust sibling: **[rust-quality](https://github.com/alehatsman/rust-quality)** —
+same shape, same JSONL finding schema, same gate composition, adapted where Rust
+differs (a canonical `[workspace.lints]` block instead of `.golangci.yml`,
+cargo-deny instead of govulncheck, no clone detection). Changes to the shared
+conventions — the finding schema, the `--format jsonl` contract, the ai-lint
+rule set, the fast/full gate split — should land in both.
+
 ## What's here
 
 ```
