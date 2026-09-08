@@ -61,12 +61,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-case "$format" in
-  text|jsonl) ;;
-  *) echo "cov: unknown --format '$format' (want text|jsonl)" >&2; exit 2 ;;
-esac
-
-say() { if [ "$format" = "jsonl" ]; then echo "$@" >&2; else echo "$@"; fi; }
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR source=lib/findings.sh
+. "$SCRIPTS_DIR/lib/findings.sh"
+findings_init cov "$format" cov
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
@@ -104,31 +102,6 @@ if [ "$refresh" -eq 1 ]; then
   echo "  ✓ coverage baseline written: $COV_BASELINE (${total}%)"
   exit 0
 fi
-
-# --- finding emission ---------------------------------------------------------
-findings=0
-errors=0
-
-json_str() {
-  local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//\"/\\\"}"
-  printf '"%s"' "$s"
-}
-
-# emit <rule> <level> <path> <line> <discriminator> <message>
-emit() {
-  if [ "$format" = "jsonl" ]; then
-    printf '{"tool":"cov","rule":%s,"level":%s,"path":%s,"line":%s,"message":%s,"fingerprint":%s}\n' \
-      "$(json_str "$1")" "$(json_str "$2")" "$(json_str "$3")" "$4" \
-      "$(json_str "$6")" "$(json_str "$1:$3:$5")"
-  else
-    printf '%s:%s: %s: %s\n' "$3" "$4" "$1" "$6"
-  fi
-  findings=$((findings + 1))
-  [ "$2" = "error" ] && errors=$((errors + 1))
-  return 0
-}
 
 # --- packages with no test files ---------------------------------------------
 # NOT parsed out of the test log. Plain `go test` marks these with
@@ -181,11 +154,11 @@ say "  coverage: ${total}% of statements (floor ${floor}%, from $floor_source)"
 say "  untested packages: $untested"
 say "  profile: $profile   (browse: go tool cover -html=$profile)"
 
-if [ "$errors" -eq 0 ]; then
+if [ "$FINDINGS_ERRORS" -eq 0 ]; then
   say "  ✓ cov: at or above the floor."
   exit 0
 fi
 
-say "  cov: $findings finding(s), $errors error(s)."
+say "  cov: $FINDINGS_COUNT finding(s), $FINDINGS_ERRORS error(s)."
 [ "$warn_only" -eq 1 ] && exit 0
 exit 1

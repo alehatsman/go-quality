@@ -41,20 +41,16 @@ while [ $# -gt 0 ]; do
     --warn-only) warn_only=1; shift ;;
     --format) format="${2:-}"; shift 2 ;;
     --format=*) format="${1#*=}"; shift ;;
-    -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
     --) shift; explicit+=("$@"); break ;;
     *)  explicit+=("$1"); shift ;;
   esac
 done
 
-case "$format" in
-  text|jsonl) ;;
-  *) echo "ai-lint: unknown --format '$format' (want text|jsonl)" >&2; exit 2 ;;
-esac
-
-# In jsonl mode stdout must stay pure JSONL, so human status/summary go to
-# stderr. `say` centralizes that routing (text mode: stdout as before).
-say() { if [ "$format" = "jsonl" ]; then echo "$@" >&2; else echo "$@"; fi; }
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR source=lib/findings.sh
+. "$SCRIPTS_DIR/lib/findings.sh"
+findings_init ai-lint "$format" ai-lint
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -89,29 +85,10 @@ fi
 
 # --- rules --------------------------------------------------------------------
 # run_rule <name> <egrep-pattern> <message> [scope: all|non-test]
-findings=0
-
-# json_str — emit a JSON-escaped double-quoted string for arbitrary text.
-# Handles the two bytes that can appear in a path/message and break JSON: the
-# backslash and the double-quote. Messages are static and paths are Go source
-# files, so no control chars are in play; keep it boring.
-json_str() {
-  local s="$1"
-  s="${s//\\/\\\\}"   # \ -> \\   (must run first)
-  s="${s//\"/\\\"}"   # " -> \"
-  printf '"%s"' "$s"
-}
-
-emit() {  # path lineno rule message  (all rules here are gate-failing -> level error)
-  if [ "$format" = "jsonl" ]; then
-    printf '{"tool":"ai-lint","rule":%s,"level":"error","path":%s,"line":%s,"message":%s,"fingerprint":%s}\n' \
-      "$(json_str "$3")" "$(json_str "$1")" "$2" "$(json_str "$4")" "$(json_str "$3:$1:$2")"
-  else
-    printf '%s:%s: %s: %s\n' "$1" "$2" "$3" "$4"
-  fi
-  findings=$((findings + 1))
-}
-
+#
+# Every rule here is gate-failing, so the shared emitter is always called with
+# level `error`, and the fingerprint discriminator is the line number — which
+# reproduces this script's original `rule:path:line` fingerprint exactly.
 run_rule() {
   local name="$1" pattern="$2" message="$3" scope="${4:-all}" f match loc lineno
   for f in "${files[@]}"; do
@@ -121,7 +98,7 @@ run_rule() {
       loc="${match%%:*}"
       rest="${match#*:}"
       lineno="${rest%%:*}"
-      emit "$loc" "$lineno" "$name" "$message"
+      emit "$name" error "$loc" "$lineno" "$lineno" "$message"
     done < <(grep -nHE "$pattern" "$f" 2>/dev/null || true)
   done
 }
@@ -144,12 +121,12 @@ run_rule diff-relic \
   'diff relic — uppercase removal banner belongs in commit history, not source'
 
 # --- report -------------------------------------------------------------------
-if [ "$findings" -eq 0 ]; then
+if [ "$FINDINGS_COUNT" -eq 0 ]; then
   say "  ✓ ai-lint: no AI-smell findings in ${#files[@]} file(s)."
   exit 0
 fi
 
 say ""
-say "  ai-lint: $findings finding(s) in ${#files[@]} file(s)."
+say "  ai-lint: $FINDINGS_COUNT finding(s) in ${#files[@]} file(s)."
 [ "$warn_only" -eq 1 ] && exit 0
 exit 1

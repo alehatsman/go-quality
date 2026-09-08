@@ -39,6 +39,7 @@ docs/
   GO.md              the Go guide: rules, traps, review checklist
   STACK.md           library defaults with verified versions
 scripts/
+  lib/findings.sh    the finding schema, sourced by every bash emitter
   ai-lint.sh         AI-smell sweep (stub panics, agent TODOs, prompt artifacts)
   arch-snapshot.sh   package-graph / coupling / cyclomatic snapshot (markdown)
   budget-status.sh   gocyclo + god-file soft-cap status
@@ -179,7 +180,11 @@ routed to stderr) in a shared schema:
 
 Fields: `tool, rule, level (error|warning|note), path, line, col?, message,
 fingerprint`. `level:error` = gate-failing — the same signal the human gate
-enforces. Emitters: `ai-lint` (every smell = error), `structure-ratchet` (NEW
+enforces. The schema lives in one place: `scripts/lib/findings.sh`, sourced by
+`ai-lint`, `deps-status`, `cov` and `lint-config-check`. The other three
+emitters (`budget-status`, `dupl-report`, `structure-ratchet`) build their JSONL
+inside an embedded `python3` block, so a bash helper cannot reach them — they
+carry the schema independently and have to be kept in step by hand. Emitters: `ai-lint` (every smell = error), `structure-ratchet` (NEW
 offenders = error, improvements = note), `deps` (new dependency = error, count
 over cap = warning, dropped dep = note), `lint-config-check` (missing linter or
 setting drift = error, extra linter = note), `dupl` (clone pairs = warning),

@@ -53,14 +53,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-case "$format" in
-  text|jsonl) ;;
-  *) echo "lint-config-check: unknown --format '$format' (want text|jsonl)" >&2; exit 2 ;;
-esac
-
-say() { if [ "$format" = "jsonl" ]; then echo "$@" >&2; else echo "$@"; fi; }
-
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR source=lib/findings.sh
+. "$SCRIPTS_DIR/lib/findings.sh"
+findings_init lint-config-check "$format" lint-config-check
+
 CANONICAL="$SCRIPTS_DIR/../.golangci.yml"
 
 if [ ! -f "$CANONICAL" ]; then
@@ -79,31 +76,6 @@ if ! command -v golangci-lint >/dev/null 2>&1; then
   say "  lint-config-check: golangci-lint not installed — skipping."
   exit 0
 fi
-
-# --- finding emission ---------------------------------------------------------
-findings=0
-errors=0
-
-json_str() {
-  local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//\"/\\\"}"
-  printf '"%s"' "$s"
-}
-
-# emit <rule> <level> <path> <line> <discriminator> <message>
-emit() {
-  if [ "$format" = "jsonl" ]; then
-    printf '{"tool":"lint-config-check","rule":%s,"level":%s,"path":%s,"line":%s,"message":%s,"fingerprint":%s}\n' \
-      "$(json_str "$1")" "$(json_str "$2")" "$(json_str "$3")" "$4" \
-      "$(json_str "$6")" "$(json_str "$1:$3:$5")"
-  else
-    printf '%s:%s: %s: %s\n' "$3" "$4" "$1" "$6"
-  fi
-  findings=$((findings + 1))
-  [ "$2" = "error" ] && errors=$((errors + 1))
-  return 0
-}
 
 # --- the consumer must have a config at all -----------------------------------
 if [ ! -f "$consumer" ]; then
@@ -176,13 +148,13 @@ for key in max-complexity tests; do
 done
 
 # --- report -------------------------------------------------------------------
-if [ "$findings" -eq 0 ]; then
+if [ "$FINDINGS_COUNT" -eq 0 ]; then
   say "  ✓ lint-config-check: $consumer matches the canonical baseline ($(echo "$canon_linters" | wc -l | tr -d ' ') linters)."
   exit 0
 fi
 
 say ""
-say "  lint-config-check: $findings finding(s), $errors error(s) in $consumer."
+say "  lint-config-check: $FINDINGS_COUNT finding(s), $FINDINGS_ERRORS error(s) in $consumer."
 [ "$warn_only" -eq 1 ] && exit 0
-[ "$errors" -gt 0 ] && exit 1
+[ "$FINDINGS_ERRORS" -gt 0 ] && exit 1
 exit 0

@@ -59,12 +59,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-case "$format" in
-  text|jsonl) ;;
-  *) echo "deps-status: unknown --format '$format' (want text|jsonl)" >&2; exit 2 ;;
-esac
-
-say() { if [ "$format" = "jsonl" ]; then echo "$@" >&2; else echo "$@"; fi; }
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR source=lib/findings.sh
+. "$SCRIPTS_DIR/lib/findings.sh"
+findings_init deps "$format" deps-status
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
@@ -108,31 +106,6 @@ if [ "$refresh" -eq 1 ]; then
   echo "  ✓ deps baseline written: $DEPS_BASELINE ($count direct dependencies)"
   exit 0
 fi
-
-# --- finding emission ---------------------------------------------------------
-findings=0
-errors=0
-
-json_str() {
-  local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//\"/\\\"}"
-  printf '"%s"' "$s"
-}
-
-# emit <rule> <level> <path> <line> <discriminator> <message>
-emit() {
-  if [ "$format" = "jsonl" ]; then
-    printf '{"tool":"deps","rule":%s,"level":%s,"path":%s,"line":%s,"message":%s,"fingerprint":%s}\n' \
-      "$(json_str "$1")" "$(json_str "$2")" "$(json_str "$3")" "$4" \
-      "$(json_str "$6")" "$(json_str "$1:$3:$5")"
-  else
-    printf '%s:%s: %s: %s\n' "$3" "$4" "$1" "$6"
-  fi
-  findings=$((findings + 1))
-  [ "$2" = "error" ] && errors=$((errors + 1))
-  return 0
-}
 
 # Line of a module path inside go.mod, so findings land where the human looks.
 mod_line() {
@@ -192,12 +165,12 @@ fi
 say ""
 say "  deps: $count direct (cap $CAP_DIRECT_DEPS), baseline $([ "$baseline_present" -eq 1 ] && echo "$DEPS_BASELINE" || echo 'not committed — new-dep enforcement off')"
 
-if [ "$findings" -eq 0 ]; then
+if [ "$FINDINGS_COUNT" -eq 0 ]; then
   say "  ✓ deps-status: no findings."
   exit 0
 fi
 
-say "  deps-status: $findings finding(s), $errors error(s)."
+say "  deps-status: $FINDINGS_COUNT finding(s), $FINDINGS_ERRORS error(s)."
 [ "$warn_only" -eq 1 ] && exit 0
-[ "$errors" -gt 0 ] && exit 1
+[ "$FINDINGS_ERRORS" -gt 0 ] && exit 1
 exit 0

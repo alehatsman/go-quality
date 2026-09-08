@@ -47,6 +47,18 @@ and `intrange`, so those two are not enabled separately.
 unenforceable and `usetesting` / `testifylint` / `tparallel` would be dead
 weight.
 
+### The finding schema is a file, not a convention
+
+Four bash emitters carried byte-identical `json_str` bodies and an `emit` that
+differed only in one string literal, which made the schema a four-file edit that
+would eventually miss one. `scripts/lib/findings.sh` owns it now.
+
+It stops at the bash boundary on purpose. `budget-status`, `dupl-report` and
+`structure-ratchet` construct their JSONL inside an embedded `python3` block; a
+bash helper cannot reach into that, and rewriting three working analysis scripts
+in a different language to share thirty lines would cost more than it saves.
+Those three are noted in the lib's header as the copies that stay manual.
+
 ### `config-check` exists because golangci-lint v2 has no config merge
 
 `sync-config` copies the baseline into a consumer, and the consumer then appends
