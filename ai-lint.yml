@@ -1,6 +1,4 @@
-name: go-quality-ai-lint
 description: Sweep Go source for AI-agent artifacts (stub panics, agent-tagged TODOs, prompt-dialog comments). Scans staged files by default.
-version: 1.0.0
 
 props:
   args:
@@ -11,3 +9,8 @@ props:
 steps:
   - name: ai-lint
     shell: bash "{{ component_dir }}/scripts/ai-lint.sh" {{ props.args }}
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"

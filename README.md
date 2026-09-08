@@ -2,8 +2,12 @@
 
 Shared Go quality toolchain for the fleet — **one canonical source** for how we
 write Go and for the lint config, static-analysis scripts, and CI gates that
-enforce it across `mooncake`, `dex`, `moongit`, and future Go repos. Consumed as
-a [mooncake](https://github.com/alehatsman/mooncake) module.
+enforce it across `moongit` and future Go repos. Consumed by
+[provision](https://github.com/alehatsman/provision).
+
+`mooncake` and `dex` were consumers and are archived. What they contributed to
+the shared baseline stays, and the reconciliation notes below still explain why
+each thing is or is not here.
 
 Two deliverables, one repo:
 
@@ -11,7 +15,7 @@ Two deliverables, one repo:
 |---|---|
 | **[docs/GO.md](docs/GO.md)** | How to write Go here. 118 rules, Go 1.27 baseline. Read this first. |
 | **[docs/STACK.md](docs/STACK.md)** | What to reach for. Versions verified against the module proxy, not from memory. |
-| **the gate** | `.golangci.yml` + `scripts/` + the mooncake presets. What machines check. |
+| **the gate** | `.golangci.yml` + `scripts/` + the presets. What machines check. |
 
 The two halves are wired together on purpose. Every rule in `docs/GO.md` marked
 `[gate]` is enforced by a linter in `.golangci.yml` or a script in `scripts/`.
@@ -25,7 +29,6 @@ view of what the gate found.
 ## What's here
 
 ```
-index.yml            module manifest (name + export → component map)
 SPEC.md              design decisions: what was deliberately left out, and why
 .golangci.yml        canonical lint config — the enforceable half of docs/GO.md
 docs/
@@ -212,7 +215,8 @@ sarif: goq/sarif   # .gate/findings.jsonl -> .gate/findings.sarif
 
 The CI gates and `arch-snapshot.sh` honor a `GO_TAGS` env var and thread it into
 `go build`/`go test`/`go vet`, `golangci-lint --build-tags`, `govulncheck -tags`,
-and `go list`. This is what lets **dex** run the shared gate with its mandatory
+and `go list`. It exists so a repo with a mandatory build tag can run the shared
+gate unforked — this is what let **dex** run it with its mandatory
 `sqlite_fts5` tag (mattn/go-sqlite3 ships FTS5 only with that tag) without
 forking the scripts. Projects with no build tags leave `GO_TAGS` unset and the
 flag is simply omitted.
@@ -256,46 +260,69 @@ canonical version each. What stayed **out** of the shared baseline, by design:
   mandates. A repo that needs `gorm` or `zap` is not violating anything; it just
   writes the reason down.
 
-## Consuming this module
+## The presets
 
-The ergonomic wiring (mooncake ≥ the default-props/shorthand release): hoist the
-invariant `go_tags`/`pkg` into the binding as **default props** and wire each
-export with the one-line task-as-alias shorthand.
+One file per preset at the repo root, beside `scripts/` and `.golangci.yml`, so
+each can reach `{{ component_dir }}/scripts/...` directly. There is no manifest
+and no export table: provision lists a directory by each file's `description:`.
+
+| File | What it does |
+|---|---|
+| `ci.yml` | full pre-push gate — build, test, tidy, golangci-lint, govulncheck, arch-snapshot, budget, dupl, deps, structure-ratchet |
+| `fast.yml` | fast pre-commit gate — vet, gofmt, ai-lint, budget |
+| `tools.yml` | install + verify the static-analysis toolchain |
+| `sync-config.yml` | drop the shared `.golangci.yml` into the consumer |
+| `build.yml` | `go build` |
+| `test.yml` | `go test` |
+| `fmt.yml` | gofmt check |
+| `vet.yml` | `go vet` |
+| `lint.yml` | golangci-lint |
+| `vuln.yml` | govulncheck |
+| `scan.yml` | lint + vuln together |
+| `ai-lint.yml` | AI-smell sweep — stub panics, agent TODOs, prompt artifacts |
+| `arch-snapshot.yml` | package-graph / coupling / cyclomatic snapshot |
+| `budget-status.yml` | gocyclo + god-file soft-cap status |
+| `dupl.yml` | production-code duplication report |
+| `deps.yml` | `go mod verify` + direct-dep cap + opt-in new-dep detection |
+| `config-check.yml` | `.golangci.yml` drift against the canonical baseline |
+| `structure-ratchet.yml` | opt-in monotonic structural ratchet |
+| `findings.yml` | aggregate every `--format jsonl` emitter → `.gate/findings.jsonl` |
+| `sarif.yml` | project `findings.jsonl` → SARIF 2.1.0 for code scanning / IDEs |
+| `cov.yml` | coverage report + opt-in monotonic floor — out of band, not in `ci` |
+| `race.yml` | `go test -race` — out of band, not in `ci` |
+
+## Consuming it
+
+A preset is a provision component, `use`d by file path from a checkout the
+consumer's own plan clones and pins:
 
 ```yaml
-vars: { GO_TAGS: "", PKG: ./... }
-modules:
-  goq:
-    source: "github.com/alehatsman/go-quality@v0.3.3"
-    props:
-      go_tags: "{{ GO_TAGS }}"   # only the exports that declare it receive it
-      pkg: "{{ PKG }}"
-
-tasks:
-  test: goq/test
-  vet:  goq/vet
-  lint: goq/lint
-  vuln: goq/vuln
-  ci:   goq/ci
-  ci-fast: goq/ci-fast
-  # budget-status/dupl/ai-lint/fmt/tools/deps/config-check declare neither
-  # go_tags nor pkg — the defaults are filtered out, so these wrappers work too:
-  budget-status: goq/budget-status
-  deps: goq/deps
-  config-check: goq/config-check
-  # out of band — not in goq/ci, run them deliberately:
-  cov:  goq/cov
-  race: goq/race
-  # build takes its own props, so keep the full form:
-  build:
-    steps:
-      - use: goq/build
-        props: { cmd_path: ./cmd, bin: "{{ BIN }}" }
+steps:
+  - name: full gate
+    use: ~/.cache/provision/tools/go-quality/ci.yml
+    props: { go_tags: "sqlite_fts5" }
 ```
 
-A module-level default prop is applied **only to the exports that declare it**
-(so a `go_tags` default reaches `lint`/`test`/… but is skipped for
-`budget-status`); a per-call `props:` overrides. `mooncake task` lists each
-component's own `description:`, so the shorthand tasks need no `desc:`.
+The consumer's `tasks/` is one file per gate it wants, each a `description:` and
+one `use:` line; `tasks/tools.yml` owns the clone and the version pin, so a bump
+is one line and nothing fetches at gate time.
 
-The full export catalog is `index.yml`.
+Props are per call, and only the presets that declare one take it. `go_tags` and
+`pkg` reach the toolchain gates (`ci`, `fast`, `test`, `vet`, `lint`, `vuln`,
+`scan`, `arch-snapshot`, `cov`, `race`, `structure-ratchet`); `fmt`, `dupl`,
+`ai-lint`, `budget-status`, `config-check`, `sarif` and `tools` declare neither
+and take none. `build` takes its own:
+
+```yaml
+  - name: build
+    use: ~/.cache/provision/tools/go-quality/build.yml
+    props: { cmd_path: ./cmd, bin: bin/moongit }
+```
+
+Every step whose exit code is its whole contract declares `changed_when: false`,
+so `provision validate --strict` is clean and a converged run reports `ok`
+rather than `unknown`. The one exception is `tools.yml`'s install step: it
+changes real state and cannot say in advance whether it will.
+
+Out of band on purpose: `cov` and `race` are not in `ci`. They are slow enough
+to push people around the gate, so they are run deliberately.

@@ -1,10 +1,8 @@
-name: go-quality-race
 description: >-
   Run the test suite under the race detector. Out of band by design: -race
   roughly doubles wall-clock and needs cgo, so goq/ci leaves it out and this
   export makes it a deliberate call (nightly, pre-release, or after touching
   anything concurrent).
-version: 1.0.0
 
 props:
   go_tags:
@@ -30,3 +28,9 @@ steps:
     shell: >-
       CGO_ENABLED=1 go test -race -count={{ props.count }}
       {% if props.go_tags %}-tags "{{ props.go_tags }}"{% endif %} {{ props.pkg }}
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
+    timeout: 30m

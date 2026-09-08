@@ -1,9 +1,7 @@
-name: go-quality-ci-fast
 description: >-
   Fast pre-commit gate — go vet + tidy + gofmt (staged) + ai-lint (staged) +
   budget + .golangci.yml drift check. Runs scripts/ci/fast.sh in the consumer's
   cwd.
-version: 1.1.0
 
 props:
   go_tags:
@@ -18,3 +16,9 @@ props:
 steps:
   - name: go-quality fast gate
     shell: GO_TAGS="{{ props.go_tags }}" PKG="{{ props.pkg }}" bash "{{ component_dir }}/scripts/ci/fast.sh"
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
+    timeout: 30m

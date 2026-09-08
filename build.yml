@@ -1,6 +1,4 @@
-name: go-quality-build
 description: Compile the project. With `bin` set, produces a named binary from `cmd_path`; otherwise compile-checks `cmd_path`.
-version: 1.0.0
 
 props:
   go_tags:
@@ -27,3 +25,9 @@ props:
 steps:
   - name: go build
     shell: go build {% if props.trimpath %}-trimpath {% endif %}{% if props.go_tags %}-tags "{{ props.go_tags }}" {% endif %}{% if props.ldflags %}-ldflags "{{ props.ldflags }}" {% endif %}{% if props.bin %}-o "{{ props.bin }}" {% endif %}{{ props.cmd_path }}
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
+    timeout: 30m

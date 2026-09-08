@@ -1,6 +1,4 @@
-name: go-quality-vet
 description: Run go vet.
-version: 1.0.0
 
 props:
   go_tags:
@@ -15,3 +13,9 @@ props:
 steps:
   - name: go vet
     shell: go vet {% if props.go_tags %}-tags "{{ props.go_tags }}"{% endif %} {{ props.pkg }}
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
+    timeout: 30m

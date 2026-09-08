@@ -1,9 +1,7 @@
-name: go-quality-structure-ratchet
 description: >-
   Monotonic ratchet for structural metrics (god files, gocyclo>cap, dupl pairs,
   deadcode). Fails when any count grows above a committed baseline. Opt-in:
   skips cleanly for projects without benchmark/structure/baseline.json.
-version: 1.0.0
 
 props:
   go_tags:
@@ -31,3 +29,9 @@ steps:
       GO_TAGS="{{ props.go_tags }}" DEADCODE_PKG="{{ props.deadcode_pkg }}"
       STRUCTURE_BASELINE="{{ props.structure_baseline }}"
       bash "{{ component_dir }}/scripts/structure-ratchet.sh" {{ props.refresh }}
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
+    timeout: 30m

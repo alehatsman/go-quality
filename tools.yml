@@ -1,10 +1,15 @@
-name: go-quality-tools
 description: Install the static-analysis toolchain (golangci-lint, govulncheck, gosec, gocyclo, goda, dupl) and verify it's present.
-version: 1.0.0
 
 steps:
   - name: install static-analysis tools
+    # `go install` per tool, from source. The only step here that changes real
+    # state, and the only one that cannot say in advance whether it will --
+    # so it declares nothing and reads `unknown`, which is honest.
     shell: bash "{{ component_dir }}/scripts/install-tools.sh"
+    timeout: 30m
 
   - name: verify tools present
     shell: bash "{{ component_dir }}/scripts/check-tools.sh"
+    # Spec §6.1: the exit code is this step's whole contract -- it looks for
+    # binaries on PATH and says whether they are there.
+    changed_when: "false"

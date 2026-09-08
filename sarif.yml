@@ -1,14 +1,13 @@
-name: go-quality-sarif
 description: >-
   Project the JSONL gate findings (.gate/findings.jsonl) into SARIF 2.1.0
   (.gate/findings.sarif) for GitHub code scanning / IDE ingestion.
   A pure leaf projection — run on demand or in CI after goq/findings, never in
   the local fast path.
-version: 1.0.0
 
 props:
-  # NB: not "in" — the mooncake template engine treats `in` as a reserved
-  # keyword, so `{{ props.in }}` fails to compile.
+  # NB: not "in" — `in` is an operator in Jinja-family template engines, so
+  # `{{ props.in }}` does not compile. True of provision's minijinja as it was
+  # of mooncake's engine; the name stays.
   input:
     type: string
     default: ".gate/findings.jsonl"
@@ -21,3 +20,8 @@ props:
 steps:
   - name: findings to sarif
     shell: 'bash "{{ component_dir }}/scripts/findings-to-sarif.sh" "{{ props.input }}" > "{{ props.out }}" && echo "sarif written -> {{ props.out }}"'
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"

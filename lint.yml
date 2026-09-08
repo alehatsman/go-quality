@@ -1,6 +1,4 @@
-name: go-quality-lint
 description: Run golangci-lint (includes gosec, staticcheck, cyclop, revive, …). Cleans the cache first so sibling worktrees don't leak findings.
-version: 1.0.0
 
 props:
   go_tags:
@@ -17,3 +15,9 @@ steps:
     shell: |
       golangci-lint cache clean
       golangci-lint run {% if props.go_tags %}--build-tags "{{ props.go_tags }}"{% endif %} {{ props.pkg }}
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
+    timeout: 30m

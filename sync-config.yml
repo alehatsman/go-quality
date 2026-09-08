@@ -1,10 +1,8 @@
-name: go-quality-sync-config
 description: >-
   Drop the shared baseline .golangci.yml into the consumer repo root. src reads
   from the module (component_dir); dest is relative and resolves against the
-  consumer's invocation dir (mooncake#43). Projects layer their own
-  exclusions.rules on top of the baseline.
-version: 1.0.0
+  consumer's invocation dir. Projects layer their own exclusions.rules on top
+  of the baseline.
 
 props:
   dest:
@@ -12,9 +10,16 @@ props:
     default: ".golangci.yml"
     description: Destination path, relative to the consumer repo root.
 
+# A `file` step's `src` resolves against the file that names it, so
+# `{{ component_dir }}` reaches this checkout's own baseline. `path` is not
+# resolved: a relative one lands in the directory provision was invoked from,
+# which is the consumer repo. Read from here, write over there.
+#
+# No `force`: `file` compares bytes and reports `ok` when they already match,
+# so re-running this is a no-op that says so. `file.copy` overwrote blind.
 steps:
   - name: install shared .golangci.yml
-    file.copy:
+    file:
+      path: "{{ props.dest }}"
+      state: file
       src: "{{ component_dir }}/.golangci.yml"
-      dest: "{{ props.dest }}"
-      force: true

@@ -1,6 +1,4 @@
-name: go-quality-dupl
 description: Production-code duplication report (informational). Gracefully skips if dupl isn't installed.
-version: 1.0.0
 
 props:
   threshold:
@@ -11,3 +9,8 @@ props:
 steps:
   - name: dupl-report
     shell: T="{{ props.threshold }}" bash "{{ component_dir }}/scripts/dupl-report.sh" --ci
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"

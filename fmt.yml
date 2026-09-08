@@ -1,6 +1,4 @@
-name: go-quality-fmt
 description: Check gofmt formatting across the tree; fails (listing offending files) if any need formatting.
-version: 1.0.0
 
 steps:
   - name: gofmt check
@@ -13,3 +11,8 @@ steps:
         exit 1
       fi
       echo "✓ all files gofmt-clean"
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"

@@ -1,9 +1,7 @@
-name: go-quality-ci
 description: >-
   Full pre-push gate — build + test + tidy + golangci-lint + govulncheck +
   arch-snapshot + budget + dupl + deps + structure-ratchet. Runs
   scripts/ci/full.sh in the consumer's cwd.
-version: 1.1.0
 
 props:
   go_tags:
@@ -41,3 +39,9 @@ steps:
       DEADCODE_PKG="{{ props.deadcode_pkg }}" STRUCTURE_BASELINE="{{ props.structure_baseline }}"
       CAP_DIRECT_DEPS="{{ props.cap_direct_deps }}" DEPS_BASELINE="{{ props.deps_baseline }}"
       bash "{{ component_dir }}/scripts/ci/full.sh"
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
+    timeout: 30m

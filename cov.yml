@@ -1,10 +1,8 @@
-name: go-quality-cov
 description: >-
   Test coverage report with an opt-in monotonic floor. Reports always; fails only
   once benchmark/coverage/baseline.txt is committed, after which coverage may
   rise freely and may not fall. Out of band — it re-runs the whole suite, so it
   does not belong on the push path.
-version: 1.0.0
 
 props:
   go_tags:
@@ -41,3 +39,9 @@ steps:
       COV_MIN="{{ props.cov_min }}" COV_BASELINE="{{ props.cov_baseline }}"
       bash "{{ component_dir }}/scripts/cov.sh"
       --ci {{ props.refresh }} {{ props.format }}
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
+    timeout: 30m

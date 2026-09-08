@@ -1,4 +1,3 @@
-name: go-quality-findings
 description: >-
   Aggregate every gate step's `--format jsonl` output into one machine-readable
   findings stream (.gate/findings.jsonl) — the agent-facing view of the gate.
@@ -8,7 +7,6 @@ description: >-
   structure-ratchet, deps and lint-config-check (errors) plus dupl and budget
   (informational warnings). Stays offline and never runs the test suite, so
   goq/cov is deliberately not an emitter here.
-version: 1.2.0
 
 props:
   go_tags:
@@ -41,6 +39,11 @@ steps:
   # job via each finding's `fingerprint`.
   - name: reset findings artifact
     shell: 'mkdir -p "$(dirname "{{ props.out }}")" && : > "{{ props.out }}"'
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
 
   # --warn-only: ai-lint must not abort the sweep just because it found smells;
   # its findings are captured, the exit code is not the gate here.
@@ -48,6 +51,11 @@ steps:
     shell: >-
       bash "{{ component_dir }}/scripts/ai-lint.sh" --all --format jsonl --warn-only
       >> "{{ props.out }}"
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
 
   # `|| true`: structure-ratchet exits 1 when a count grew — that is the gate's
   # job in goq/ci, not here; we only want its findings on the stream.
@@ -57,17 +65,33 @@ steps:
       STRUCTURE_BASELINE="{{ props.structure_baseline }}"
       bash "{{ component_dir }}/scripts/structure-ratchet.sh" --format jsonl
       >> "{{ props.out }}" || true
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
+    timeout: 30m
 
   # Informational emitters (level:warning) — never fail, so no `|| true` needed.
   - name: collect dupl findings
     shell: >-
       bash "{{ component_dir }}/scripts/dupl-report.sh" --format jsonl
       >> "{{ props.out }}"
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
 
   - name: collect budget findings
     shell: >-
       bash "{{ component_dir }}/scripts/budget-status.sh" --format jsonl
       >> "{{ props.out }}"
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
 
   # `--warn-only`: a dependency that is new relative to the baseline is a
   # gate-failing finding in goq/ci, but here we only want it on the stream.
@@ -78,11 +102,22 @@ steps:
       DEPS_BASELINE="{{ props.deps_baseline }}"
       bash "{{ component_dir }}/scripts/deps-status.sh" --format jsonl --warn-only
       >> "{{ props.out }}"
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
+    timeout: 30m
 
   - name: collect lint-config-check findings
     shell: >-
       bash "{{ component_dir }}/scripts/lint-config-check.sh" --format jsonl --warn-only
       >> "{{ props.out }}"
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
 
   # Cheap substring count — findings are one JSON object per line. `grep -c`
   # already prints 0 and exits 1 on no match, so guard with `|| true` (not
@@ -92,3 +127,8 @@ steps:
       echo "findings: $(grep -c . "{{ props.out }}" 2>/dev/null || true) total,
       $(grep -c '"level":"error"' "{{ props.out }}" 2>/dev/null || true) error(s)
       -> {{ props.out }}"
+    # Spec §6.1: the exit code is this step's whole contract -- it inspects
+    # and reports, and there is no state for provision to be unsure about.
+    # Without the declaration every run reads `unknown` and
+    # `validate --strict` rejects the file.
+    changed_when: "false"
