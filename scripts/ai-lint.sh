@@ -136,7 +136,7 @@ run_rule agent-todo \
   'agent-tagged TODO — replace with a real owner or open an issue'
 
 run_rule ai-self-ref \
-  '//.*\b(as requested|per your request|as you (asked|requested|wanted)|in response to your request)\b' \
+  '//.*\b([Aa]s requested|[Pp]er your request|[Aa]s you (asked|requested|wanted)|[Ii]n response to your request)\b' \
   'AI prompt artifact — comment references the agent dialog'
 
 run_rule diff-relic \
