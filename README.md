@@ -33,7 +33,7 @@ rule set, the fast/full gate split — should land in both.
 
 ```
 index.yml            module manifest (name + export → component map)
-SPEC.md              what this module is, its interfaces, and why the gates are shaped this way
+SPEC.md              design decisions: what was deliberately left out, and why
 .golangci.yml        canonical lint config — the enforceable half of docs/GO.md
 docs/
   GO.md              the Go guide: rules, traps, review checklist
@@ -57,8 +57,8 @@ scripts/
 
 ## The lint baseline
 
-`.golangci.yml` enables ~41 linters, grouped in the file by what they defend:
-errors (`errorlint`, `nilerr`, `nilnil`, `forcetypeassert`), context
+`.golangci.yml` enables 37 linters, grouped in the file by what they defend:
+errors (`errorlint`, `nilerr`, `nilnil`, `nilnesserr`), context
 (`contextcheck`, `containedctx`, `fatcontext`, `noctx`), concurrency and
 resource lifetime (`sqlclosecheck`, `rowserrcheck`, `recvcheck`, `tparallel`),
 modernization (`modernize`, `exptostd`), logging (`sloglint`) and tests
@@ -219,10 +219,22 @@ and `go list`. This is what lets **dex** run the shared gate with its mandatory
 forking the scripts. Projects with no build tags leave `GO_TAGS` unset and the
 flag is simply omitted.
 
-Other knobs: `PKG` (default `./...`), `CAP_GOCYCLO` (35), `CAP_GOD_LOC` (500),
-`T` (dupl threshold, 100), `CAP_DIRECT_DEPS` (40), `DEPS_BASELINE`
-(`benchmark/deps/baseline.txt`), `COV_MIN` (0), `COV_BASELINE`
-(`benchmark/coverage/baseline.txt`), `GATE_DIR` (`.gate`).
+Every other knob:
+
+| Var | Default | Meaning |
+|---|---|---|
+| `PKG` | `./...` | Package pattern passed to go commands |
+| `GO_TAGS` | *(unset)* | Build tags threaded through the whole gate |
+| `CAP_GOCYCLO` | `35` | Cyclomatic soft cap |
+| `CAP_GOD_LOC` | `500` | God-file soft cap, non-test `.go` |
+| `T` | `100` | dupl clone threshold |
+| `STRUCTURE_BASELINE` | `benchmark/structure/baseline.json` | Structural ratchet baseline |
+| `DEADCODE_PKG` | `./...` | deadcode entry packages |
+| `CAP_DIRECT_DEPS` | `40` | Direct-dependency soft cap |
+| `DEPS_BASELINE` | `benchmark/deps/baseline.txt` | Direct-dependency allowlist (opt-in) |
+| `COV_MIN` | `0` | Coverage floor when no baseline is committed |
+| `COV_BASELINE` | `benchmark/coverage/baseline.txt` | Committed coverage floor (opt-in) |
+| `GATE_DIR` | `.gate` | Findings / coverage artifact dir |
 
 ## Reconciliation notes (canonical vs. project-local)
 

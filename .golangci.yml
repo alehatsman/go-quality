@@ -46,7 +46,6 @@ linters:
     - nilerr           # return nil when err is non-nil — silent data loss
     - nilnesserr       # checks err != nil but returns a *different* nil error
     - nilnil           # returns (nil, nil) from a (T, error) signature
-    - forcetypeassert  # x.(T) without the comma-ok — an unhandled panic source
 
     # --- context: GO.md §7 ---
     - noctx            # HTTP/SQL calls without context — misses cancellation
@@ -59,14 +58,11 @@ linters:
     - rowserrcheck     # rows.Err() never checked — silently truncated result set
     - durationcheck    # two Durations multiplied — almost always a unit bug
     - makezero         # make([]T, n) then append — n zero values you did not want
-    - wastedassign     # value assigned then overwritten before any read
     - recvcheck        # mixed pointer/value receivers on one type
     - tparallel        # t.Parallel() used in a way that does not do what you think
 
     # --- correctness, miscellaneous ---
-    - asasalint        # []any passed as a single any to a variadic func
     - bidichk          # bidirectional-unicode trojan source
-    - predeclared      # shadowing len/cap/new/min/max/any
     - reassign         # reassigning another package's exported variable
     - iotamixing       # iota in a const block mixed with non-iota declarations
     - gocheckcompilerdirectives  # a typo'd //go: directive is a silent no-op
@@ -114,6 +110,12 @@ linters:
     - lll           # line length; gofmt does not wrap and neither should a human
     - godot         # comments ending in a period
     - noinlineerr   # forbids `if err := f(); err != nil` — the most idiomatic form there is
+    # Dropped as verified duplicates — each reported the same file:line:col as a
+    # linter already enabled above, so it added output without adding coverage:
+    - forcetypeassert  # ≡ errcheck with check-type-assertions: true
+    - wastedassign     # ≡ ineffassign
+    - predeclared      # ≡ revive's redefines-builtin-id
+    - asasalint        # did not fire on the pattern it exists to catch
 
   settings:
     gosec:
@@ -194,21 +196,24 @@ linters:
         - name: superfluous-else
         - name: unused-parameter
         - name: unreachable-code
-        # --- added: bug-catching, not style ---
-        - name: atomic                    # sync/atomic misuse (x = atomic.AddInt64(&x, 1))
+        # --- added: bug-catching, and NOT already covered elsewhere ---
+        # Each was checked against govet + staticcheck on a probe file before
+        # being kept. The ones that reported at an identical position are not
+        # here — see the note below.
         - name: defer                     # defer in a loop, defer of a recover, …
-        - name: unconditional-recursion   # a method that always calls itself
         - name: identical-branches        # if/else with the same body
-        - name: constant-logical-expr     # `x == x`, `a && a`
-        - name: bool-literal-in-expr      # `x == true`
-        - name: duplicated-imports        # same package imported twice
-        - name: modifies-value-receiver   # mutation that silently goes nowhere
-        - name: string-of-int             # string(intVal) — almost never intended
         - name: time-equal                # t1 == t2 compares monotonic clocks too
-        - name: waitgroup-by-value        # a copied WaitGroup never completes
         - name: redefines-builtin-id      # `len := ...`
-        - name: useless-break
-        - name: struct-tag                # malformed / duplicated struct tags
+        #
+        # Verified duplicates, deliberately NOT enabled — govet/staticcheck
+        # already report them at the same file:line:col, so enabling these only
+        # doubles the output:
+        #   atomic → govet atomic            string-of-int → govet stringintconv
+        #   waitgroup-by-value → govet copylocks
+        #   bool-literal-in-expr → S1002     useless-break → S1023
+        #   constant-logical-expr → SA4000   duplicated-imports → ST1019
+        #   unconditional-recursion → SA5007 modifies-value-receiver → SA4005
+        #   struct-tag → SA5008 (and revive's own rule did not fire at all)
 
     staticcheck:
       # Keep SA* (the real-bug checks); drop QF/ST/S style suggestions.
@@ -231,7 +236,6 @@ linters:
           - cyclop           # table-driven tests are one long, flat function
           - bodyclose        # httptest response bodies die with the test
           - noctx            # test requests do not need cancellation plumbing
-          - forcetypeassert  # a bad assertion in a test is a test failure, correctly
           - containedctx     # test fixtures legitimately carry a ctx
           - contextcheck
           - musttag

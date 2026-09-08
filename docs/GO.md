@@ -16,8 +16,8 @@ without the other, this document has started lying.
 1. **Spec first for anything non-trivial.** Goal, scope, interfaces, edge cases,
    validation. Go makes bad designs easy to write and hard to notice — nothing
    in the type system will stop you from shipping a package that does four jobs.
-2. **Boring tech, few deps, small interfaces.** Every dependency is code you
-   ship, an `init()` you execute, and a module proxy you trust. [gate: `goq/deps`]
+2. **Boring tech, few deps, small interfaces.** The dependency budget is a
+   design constraint, not an afterthought — §13.
 3. **One package until one package hurts.** Splitting later costs a rename;
    splitting up front costs an import cycle you will spend an afternoon on.
 
@@ -161,7 +161,7 @@ without the other, this document has started lying.
     and only to turn the panic into a logged error and a 500. A `recover` in the
     middle of a library is a `try/catch` in disguise.
 48. **Unchecked type assertions are panics with extra steps.** `v, ok := x.(T)`.
-    [gate: `forcetypeassert`, `errcheck`]
+    [gate: `errcheck`]
 49. **Never start a goroutine without knowing how it stops.** A goroutine with
     no owner and no cancellation is a leak you will find with `pprof` at 3am —
     or with the `goroutineleak` profile (Go 1.27), which exists precisely
@@ -175,7 +175,7 @@ without the other, this document has started lying.
     design.
 53. **A mutex sits next to the fields it guards, is unexported, and is never
     copied.** A copied `sync.Mutex` or `WaitGroup` protects nothing. [gate:
-    `govet copylocks`, `revive waitgroup-by-value`]
+    `govet copylocks`]
 54. **Never hold a lock across a blocking call** — I/O, a channel send, another
     lock. That is a deadlock with a longer fuse.
 55. **A buffered channel's size needs a reason.** `make(chan T, 1)` for a
@@ -186,7 +186,7 @@ without the other, this document has started lying.
     another goroutine.
 58. **Atomic types, not the atomic functions.** `atomic.Int64` cannot be used
     non-atomically by accident; `atomic.AddInt64(&x, 1)` sitting next to a plain
-    `x++` can. [gate: `modernize atomictypes`, `revive atomic`]
+    `x++` can. [gate: `modernize atomictypes`, `govet atomic`]
 59. **Loop variables have been per-iteration since Go 1.22.** Delete every
     `x := x`. [gate: `modernize forvar`]
 60. **Run the suite under `-race` before you trust concurrent code.** [gate:
@@ -350,30 +350,21 @@ without the other, this document has started lying.
 
 ## 14. Traps — 2026 edition
 
-Each of these has cost somebody a day.
+Only what the rules above do *not* already tell you. Each has cost somebody a
+day, and several are things that used to be true and no longer are.
 
 | Trap | Reality |
 |---|---|
-| `err == ErrNotFound` | Fails the moment anything wraps. `errors.Is`. |
-| `fmt.Errorf("...: %v", err)` | Silently un-wraps the chain. `%w`. |
 | A `nil` pointer in a non-nil interface | `var p *T = nil; var i any = p; i != nil` is **true**. The classic returning-a-typed-nil-error bug. |
-| `defer` inside a loop | Runs at function exit. Ten thousand open files. |
-| `make([]T, n)` then `append` | n zero values, then your data. |
 | Slice aliasing after `append` | `append` may or may not share the backing array. `slices.Clone` when the caller keeps the original. |
 | `for ... range` over a map | Order is deliberately randomized. A test that passes locally will fail in CI. |
 | `time.Time` compared with `==` | Compares the monotonic reading and the location too. `t1.Equal(t2)`. |
-| `t.Parallel()` + `t.Setenv` | Runtime panic. The environment is process-global. |
-| A green `golangci-lint` step | On a warm cache it can emit nothing because it did not re-analyze. `goq/lint` cleans the cache first for exactly this reason. |
-| `go test` without `-race` | The race is still there. It just did not lose this time. |
-| `context.Background()` mid-chain | Disconnects cancellation and drops every value above it. |
 | Unbuffered channel in a `select` with no `default` | Blocks forever when nobody is receiving. |
-| `GOMAXPROCS` set manually in a container | Since Go 1.25 the runtime already reads the cgroup limit; your value overrides a better one. |
-| `omitempty` on a numeric or bool field | Drops `0` and `false`. Use `omitzero` (Go 1.24+). |
+| Blank-import side effects | A driver registered in `init()` is a global mutation from an import line. |
+| A green `golangci-lint` step | On a warm cache it can emit nothing because it did not re-analyze. `goq/lint` cleans the cache first for exactly this reason. |
 | `encoding/json` behaviour change | Go 1.27 makes `encoding/json/v2` the default implementation: invalid UTF-8 and duplicate object keys are now rejected. `GODEBUG=nojsonv2=1` is the escape hatch while you fix the data. |
 | `time.After` in a loop | No longer leaks since Go 1.23 (unreferenced timers are collected) — but every guide written before then still says it does. |
 | Timer channels | Unbuffered since Go 1.23, and the `asynctimerchan` GODEBUG that restored the old behaviour was removed in 1.27. Code that relied on a stale buffered value is now broken for good. |
-| `sync.WaitGroup` passed by value | Never completes. Pass the pointer. |
-| Blank-import side effects | A driver registered in `init()` is a global mutation from an import line. |
 
 ## 15. Review checklist
 
