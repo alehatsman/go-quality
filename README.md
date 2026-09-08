@@ -2,7 +2,7 @@
 
 Shared Go quality-gate toolchain for the fleet — **one canonical source** for
 the lint config, static-analysis scripts, and CI gates used across `mooncake`,
-`dex`, `moongit`, and future Go repos. Consumed as a [mooncake](http://127.0.0.1:8080/alehatsman/mooncake)
+`dex`, `moongit`, and future Go repos. Consumed as a [mooncake](https://github.com/alehatsman/mooncake)
 module.
 
 Rust sibling: **[rust-quality](https://github.com/alehatsman/rust-quality)** —
@@ -130,7 +130,7 @@ export with the one-line task-as-alias shorthand.
 vars: { GO_TAGS: "", PKG: ./... }
 modules:
   goq:
-    source: "127.0.0.1:8080/alehatsman/go-quality@v0.1.1"
+    source: "github.com/alehatsman/go-quality@v0.3.3"
     props:
       go_tags: "{{ GO_TAGS }}"   # only the exports that declare it receive it
       pkg: "{{ PKG }}"
